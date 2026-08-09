@@ -1,0 +1,22 @@
+{
+  "name": "job-agent-local",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "job-agent": "./src/cli.mjs"
+  },
+  "scripts": {
+    "start": "node ./src/cli.mjs",
+    "init": "node ./src/cli.mjs init",
+    "doctor": "node ./src/cli.mjs doctor",
+    "search": "node ./src/cli.mjs search",
+    "profile": "node ./src/cli.mjs profile"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "playwright": "^1.62.1"
+  }
+}
