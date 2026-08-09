@@ -17,6 +17,34 @@ This scaffold is meant to mirror the useful parts of projects like `career-ops` 
 - Ollama installed locally
 - a model that can follow structured prompts well
 
+## Install first
+
+If you are starting from a fresh machine, install these in this order:
+
+1. Install Node.js from [nodejs.org/en/download](https://nodejs.org/en/download/).
+   - Node.js includes `npm`, so you do not need a separate JavaScript installer.
+2. Install Ollama from [ollama.com/download/windows](https://ollama.com/download/windows) on Windows.
+   - On Windows, the official PowerShell install command is:
+
+   ```powershell
+   irm https://ollama.com/install.ps1 | iex
+   ```
+
+3. Open a new terminal and verify both tools:
+
+   ```bash
+   node -v
+   npm -v
+   ollama -v
+   ```
+
+4. Start Ollama and make sure it is reachable at `http://localhost:11434`.
+5. Pull at least one model, for example:
+
+   ```bash
+   ollama pull llama3.1:8b
+   ```
+
 Good starting models:
 
 - `qwen2.5-coder:32b`
