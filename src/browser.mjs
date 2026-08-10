@@ -22,12 +22,13 @@ const essayFieldPatterns = [
 ];
 
 export async function runBrowserAssist({ packet, applicationUrl }) {
+  const normalizedUrl = normalizeApplicationUrl(applicationUrl);
   const browser = await launchBrowser();
   const context = await browser.newContext({
     viewport: { width: 1440, height: 1200 }
   });
   const page = await context.newPage();
-  await page.goto(applicationUrl, { waitUntil: "domcontentloaded" });
+  await page.goto(normalizedUrl, { waitUntil: "domcontentloaded" });
   await page.waitForLoadState("networkidle").catch(() => {});
 
   const fieldsFilled = [];
@@ -64,18 +65,28 @@ export async function runBrowserAssist({ packet, applicationUrl }) {
     }
   }
 
+  if (process.env.AUTO_SUBMIT === "1") {
+    const submitted = await tryClickSubmit(page);
+    if (submitted) {
+      fieldsFilled.push("auto-submit");
+    }
+  }
+
   const screenshotPath = join(packet.outputDir, "browser-preview.png");
   await page.screenshot({ path: screenshotPath, fullPage: true }).catch(() => {});
 
   await writeFile(
     join(packet.outputDir, "browser-run-summary.txt"),
     [
-      `Application URL: ${applicationUrl}`,
+      `Application URL: ${normalizedUrl}`,
       `Page title: ${await page.title().catch(() => "")}`,
       `Fields filled: ${fieldsFilled.length ? fieldsFilled.join(", ") : "none"}`,
       `Screenshot: ${screenshotPath}`,
+      `Auto submit: ${process.env.AUTO_SUBMIT === "1" ? "enabled" : "disabled"}`,
       "",
-      "Stop here and review the page before clicking submit."
+      process.env.AUTO_SUBMIT === "1"
+        ? "Autopilot attempted submit if a matching button was found."
+        : "Stop here and review the page before clicking submit."
     ].join("\n"),
     "utf8"
   );
@@ -87,6 +98,27 @@ export async function runBrowserAssist({ packet, applicationUrl }) {
     screenshotPath,
     fieldsFilled
   };
+}
+
+export function normalizeApplicationUrl(applicationUrl) {
+  let parsed;
+  try {
+    parsed = new URL(applicationUrl);
+  } catch {
+    throw new Error(`Invalid application URL: ${applicationUrl}`);
+  }
+
+  const hostname = parsed.hostname.toLowerCase();
+  const looksLikeLocalhost = hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+  const hasPublicTld = hostname.includes(".");
+
+  if (!looksLikeLocalhost && !hasPublicTld) {
+    throw new Error(
+      `That looks like a placeholder URL, not a real job page: ${applicationUrl}\nUse a full application link such as https://company.com/careers/...`
+    );
+  }
+
+  return parsed.toString();
 }
 
 async function launchBrowser() {
@@ -135,6 +167,45 @@ async function fillFirstMatch(page, patterns, value) {
         await candidate.fill(value).catch(() => {});
         return true;
       }
+    }
+  }
+
+  return false;
+}
+
+async function tryClickSubmit(page) {
+  const patterns = [
+    /submit/i,
+    /apply now/i,
+    /submit application/i,
+    /send application/i,
+    /complete application/i,
+    /finish/i
+  ];
+
+  for (const pattern of patterns) {
+    const candidates = [
+      page.getByRole("button", { name: pattern }),
+      page.getByRole("link", { name: pattern }),
+      page.getByText(pattern, { exact: false }),
+      page.locator('input[type="submit"]'),
+      page.locator('button[type="submit"]')
+    ];
+
+    for (const locator of candidates) {
+      const count = await locator.count().catch(() => 0);
+      if (count === 0) {
+        continue;
+      }
+
+      const candidate = locator.first();
+      const visible = await candidate.isVisible().catch(() => false);
+      if (!visible) {
+        continue;
+      }
+
+      await candidate.click({ force: true }).catch(() => {});
+      return true;
     }
   }
 

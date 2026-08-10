@@ -7,6 +7,7 @@ export function formatHelp() {
     "  doctor              Check Ollama and project setup",
     "  profile             Print parsed resume structure",
     "  search [query]      Search public job sources and score matches",
+    "  autopilot [query]   Search, draft, fill, and submit the best match",
     "  analyze <input>     Score a job and print a report",
     "  draft <input>       Generate a tailored packet, PDF resume, and log it",
     "  apply <input>       Alias for draft",

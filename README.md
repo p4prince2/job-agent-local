@@ -86,6 +86,17 @@ node src/cli.mjs browser-apply "https://example.com/apply"
 
 Run `draft` first so the browser helper has the latest packet to use.
 
+If you pass a placeholder like `https://the-job-application-hcl`, the browser will fail because that is not a real application URL. Use a real job page or let `autopilot` pick one from search results.
+
+Run a fully automated pass that searches, scores, prepares the packet, and then fills the best match:
+
+```bash
+set AUTO_SUBMIT=1
+node src/cli.mjs autopilot "AI Engineer"
+```
+
+Without `AUTO_SUBMIT=1`, the autopilot will still search and prepare the packet, but it will stop before submitting.
+
 Check your local setup:
 
 ```bash

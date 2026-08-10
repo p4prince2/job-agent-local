@@ -6,6 +6,7 @@ import { doctor } from "./doctor.mjs";
 import { formatHelp } from "./help.mjs";
 import { resolveInput } from "./input.mjs";
 import { runBrowserAssist } from "./browser.mjs";
+import { runAutopilot } from "./autopilot.mjs";
 import { stdin as input, stdout as output } from "node:process";
 import { createInterface } from "node:readline/promises";
 import { parseResume } from "./resume-parser.mjs";
@@ -51,6 +52,13 @@ async function main() {
     await ensureProjectFiles({ forceExamples: false });
     const query = args.join(" ").trim();
     const result = await searchJobs({ query, limit: 20 });
+    process.stdout.write(result.report + "\n");
+    return;
+  }
+
+  if (command === "autopilot") {
+    const query = args.join(" ").trim();
+    const result = await runAutopilot({ query });
     process.stdout.write(result.report + "\n");
     return;
   }
