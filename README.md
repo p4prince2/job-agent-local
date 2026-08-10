@@ -7,9 +7,9 @@ This scaffold is meant to mirror the useful parts of projects like `career-ops` 
 - score a job against your CV
 - draft tailored answers and a resume focus
 - generate a per-job PDF resume packet
-- create an approval-gated browser handoff
+- create a browser handoff with a review-first default
 - keep a simple application log
-- never auto-submit anything without you reviewing it first
+- keep auto-submit optional behind an explicit setting
 
 ## What you need
 
@@ -91,7 +91,7 @@ If you pass a placeholder like `https://the-job-application-hcl`, the browser wi
 Run a fully automated pass that searches, scores, prepares the packet, and then fills the best match:
 
 ```bash
-set AUTO_SUBMIT=1
+$env:AUTO_SUBMIT="1"
 node src/cli.mjs autopilot "AI Engineer"
 ```
 
@@ -120,7 +120,7 @@ node src/cli.mjs search "AI Engineer"
 You can keep the defaults and only set the model name:
 
 ```bash
-set OLLAMA_MODEL=qwen2.5-coder:32b
+$env:OLLAMA_MODEL="qwen2.5-coder:32b"
 ```
 
 Optional settings:
@@ -139,6 +139,8 @@ Each run writes a folder under `output/` with:
 - `resume.pdf`
 - `browser-handoff.md`
 - `analysis.json`
+- `browser-preview.png` when browser assist runs
+- `browser-run-summary.txt` when browser assist runs
 
 Applications are appended to `data/applications.json`.
 Search discoveries are also recorded there with match scores and statuses.
@@ -147,7 +149,7 @@ Search discoveries are also recorded there with match scores and statuses.
 
 This scaffold is intentionally conservative. The natural next upgrade is browser-assisted form filling with a review gate, so the agent drafts and prepares actions but still waits for your approval before any submission.
 
-The `browser-apply` command does the assisted part: it fills common fields, uploads the saved resume when possible, takes a screenshot, and stops before clicking submit.
+The `browser-apply` command does the assisted part: it fills common fields, uploads the saved resume when possible, takes a screenshot, and stops before clicking submit unless `AUTO_SUBMIT=1` is set.
 
 The `search` command is the first autonomous slice: it scans public sources, scores the matches, and stores a queue of jobs to review or skip.
 
