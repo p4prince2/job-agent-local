@@ -11,6 +11,14 @@ This scaffold is meant to mirror the useful parts of projects like `career-ops` 
 - keep a simple application log
 - keep auto-submit optional behind an explicit setting
 
+## Quick Start
+
+1. Install `Node.js` and `Ollama`.
+2. Pull a model with `ollama pull llama3.1:8b`.
+3. Run `npm install`.
+4. Run `npm run init`.
+5. Start with `node src/cli.mjs search "AI Engineer"` or `node src/cli.mjs autopilot "AI Engineer"`.
+
 ## What you need
 
 - Node.js 18 or newer
@@ -88,6 +96,13 @@ Run `draft` first so the browser helper has the latest packet to use.
 
 If you pass a placeholder like `https://the-job-application-hcl`, the browser will fail because that is not a real application URL. Use a real job page or let `autopilot` pick one from search results.
 
+PowerShell users can set environment variables like this:
+
+```powershell
+$env:AUTO_SUBMIT="1"
+$env:OLLAMA_MODEL="llama3.1:8b"
+```
+
 Run a fully automated pass that searches, scores, prepares the packet, and then fills the best match:
 
 ```bash
@@ -114,6 +129,12 @@ Search public job sources and save the results into the tracker:
 ```bash
 node src/cli.mjs search "AI Engineer"
 ```
+
+## Troubleshooting
+
+- If you see `DNS_PROBE_FINISHED_NXDOMAIN`, the URL is a placeholder or typo, not a real application page.
+- If `npm run doctor` cannot reach Ollama, start Ollama first and confirm `http://localhost:11434` is open.
+- If the browser helper pauses before submit, that is the review-first default unless `AUTO_SUBMIT=1` is set.
 
 ## Environment
 
