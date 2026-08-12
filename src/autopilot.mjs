@@ -12,7 +12,7 @@ export async function runAutopilot({ query }) {
   const resumeMarkdown = await loadResume();
   const resume = parseResume({ profile, resumeMarkdown });
   const searchQuery = (query || buildDefaultQuery(profile)).trim();
-  const jobs = await fetchJobsForQuery(searchQuery, { profile, resume });
+  const { jobs, diagnostics } = await fetchJobsForQuery(searchQuery, { profile, resume });
 
   const scoredJobs = jobs
     .map((job) => ({
@@ -23,7 +23,7 @@ export async function runAutopilot({ query }) {
     .sort((left, right) => Number(right.match.score) - Number(left.match.score));
 
   if (scoredJobs.length === 0) {
-    throw new Error(`No jobs found for "${searchQuery}". Try a broader search term.`);
+    throw new Error(buildNoJobsMessage(searchQuery, diagnostics));
   }
 
   const chosen = scoredJobs.find((job) => job.match.decision === "apply") ?? scoredJobs[0];
@@ -50,6 +50,7 @@ export async function runAutopilot({ query }) {
     packet,
     record,
     browserSession,
+    diagnostics,
     report: buildAutopilotReport({
       query: searchQuery,
       chosenJob: job,
@@ -57,7 +58,8 @@ export async function runAutopilot({ query }) {
       packet,
       autoSubmitEnabled,
       browserOpened: Boolean(browserSession),
-      browserReviewRequired: Boolean(browserSession) && !autoSubmitEnabled
+      browserReviewRequired: Boolean(browserSession) && !autoSubmitEnabled,
+      diagnostics
     })
   };
 }
@@ -75,7 +77,7 @@ function safeApplicationUrl(job) {
   return normalizeApplicationUrl(url);
 }
 
-function buildAutopilotReport({ query, chosenJob, analysis, packet, autoSubmitEnabled, browserOpened, browserReviewRequired }) {
+function buildAutopilotReport({ query, chosenJob, analysis, packet, autoSubmitEnabled, browserOpened, browserReviewRequired, diagnostics }) {
   return [
     "# Autopilot Run",
     "",
@@ -86,6 +88,7 @@ function buildAutopilotReport({ query, chosenJob, analysis, packet, autoSubmitEn
     `Application URL: ${chosenJob.applicationUrl || chosenJob.jobUrl || "n/a"}`,
     `Packet: ${packet.outputDir}`,
     `Auto submit: ${autoSubmitEnabled ? "enabled" : "disabled"}`,
+    `Sources: ${formatSourceSummary(diagnostics)}`,
     "",
     !browserOpened
       ? "Autopilot prepared the packet, but this role did not expose a usable application URL."
@@ -94,4 +97,26 @@ function buildAutopilotReport({ query, chosenJob, analysis, packet, autoSubmitEn
         : "Autopilot filled the application page and left the browser open for your review before submit.",
     browserReviewRequired ? "Press Enter in the terminal after reviewing the browser page." : ""
   ].join("\n");
+}
+
+function buildNoJobsMessage(query, diagnostics = []) {
+  const failures = diagnostics.filter((item) => !item.ok);
+  if (failures.length === diagnostics.length && diagnostics.length > 0) {
+    return [
+      `No jobs found for "${query}" because every job source failed.`,
+      ...failures.map((item) => `- ${item.source}: ${item.message}`)
+    ].join("\n");
+  }
+
+  return `No jobs found for "${query}". Try a broader search term. Sources: ${formatSourceSummary(diagnostics)}`;
+}
+
+function formatSourceSummary(diagnostics = []) {
+  if (!diagnostics.length) {
+    return "no source diagnostics";
+  }
+
+  return diagnostics
+    .map((item) => (item.ok ? `${item.source} ok` : `${item.source} failed`))
+    .join(", ");
 }

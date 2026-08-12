@@ -10,7 +10,7 @@ export async function searchJobs({ query, limit = 20 }) {
   const resume = parseResume({ profile, resumeMarkdown });
   const tracker = await loadTracker();
   const searchQuery = query || buildDefaultQuery(profile);
-  const jobs = await fetchJobsForQuery(searchQuery, { profile, resume });
+  const { jobs, diagnostics } = await fetchJobsForQuery(searchQuery, { profile, resume });
   const results = [];
 
   for (const job of jobs.slice(0, limit * 2)) {
@@ -53,11 +53,12 @@ export async function searchJobs({ query, limit = 20 }) {
   return {
     query: searchQuery,
     resume,
+    diagnostics,
     results,
     strongMatches,
     skipped,
     review,
-    report: buildReport({ query: searchQuery, results, strongMatches, skipped, review, resume })
+    report: buildReport({ query: searchQuery, results, strongMatches, skipped, review, resume, diagnostics })
   };
 }
 
@@ -66,8 +67,9 @@ function buildDefaultQuery(profile) {
   return terms.slice(0, 4).join(" OR ");
 }
 
-function buildReport({ query, results, strongMatches, skipped, review, resume }) {
+function buildReport({ query, results, strongMatches, skipped, review, resume, diagnostics }) {
   const missingSkills = collectMissingSkills(results);
+  const sourceLines = buildSourceLines(diagnostics);
   const top = results
     .slice()
     .sort((left, right) => Number(right.score) - Number(left.score))
@@ -83,6 +85,10 @@ function buildReport({ query, results, strongMatches, skipped, review, resume })
     `Strong matches: ${strongMatches.length}`,
     `Review list: ${review.length}`,
     `Skipped: ${skipped.length}`,
+    "",
+    "## Sources",
+    "",
+    ...(sourceLines.length ? sourceLines : ["- No source diagnostics available."]),
     "",
     "## Top Applications",
     "",
@@ -101,6 +107,14 @@ function buildReport({ query, results, strongMatches, skipped, review, resume })
   ].join("\n");
 }
 
+function buildSourceLines(diagnostics = []) {
+  return diagnostics.map((item) =>
+    item.ok
+      ? `- ${item.source}: ok (${item.count} jobs)`
+      : `- ${item.source}: failed (${item.message})`
+  );
+}
+
 function collectMissingSkills(results) {
   const counts = new Map();
   for (const item of results) {
@@ -113,4 +127,3 @@ function collectMissingSkills(results) {
     .slice(0, 8)
     .map(([skill]) => skill);
 }
-

@@ -2,21 +2,37 @@ import { uniqueStrings } from "./utils.mjs";
 
 export async function fetchJobsForQuery(query, options = {}) {
   const sources = [
-    fetchRemotiveJobs,
-    fetchArbeitnowJobs
+    { name: "remotive", fetcher: fetchRemotiveJobs },
+    { name: "arbeitnow", fetcher: fetchArbeitnowJobs }
   ];
 
   const results = [];
+  const diagnostics = [];
+
   for (const source of sources) {
     try {
-      const jobs = await source(query, options);
+      const jobs = await source.fetcher(query, options);
       results.push(...jobs);
-    } catch {
-      // keep going on source failures
+      diagnostics.push({
+        source: source.name,
+        ok: true,
+        count: jobs.length,
+        message: `${source.name} returned ${jobs.length} jobs.`
+      });
+    } catch (error) {
+      diagnostics.push({
+        source: source.name,
+        ok: false,
+        count: 0,
+        message: normalizeErrorMessage(error)
+      });
     }
   }
 
-  return dedupeJobs(results);
+  return {
+    jobs: dedupeJobs(results),
+    diagnostics
+  };
 }
 
 async function fetchRemotiveJobs(query) {
@@ -134,3 +150,9 @@ function stripHtml(html) {
     .trim();
 }
 
+function normalizeErrorMessage(error) {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  return String(error ?? "Unknown source error");
+}
