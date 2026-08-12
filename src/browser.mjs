@@ -1,5 +1,5 @@
 import { chromium } from "playwright";
-import { access, mkdir, writeFile } from "node:fs/promises";
+import { access, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 const namedFieldPatterns = [
@@ -142,6 +142,18 @@ async function launchBrowser() {
   }
 
   throw new Error(`Unable to launch a browser for automation: ${lastError?.message ?? "unknown error"}`);
+}
+
+export async function checkBrowserAutomation() {
+  let browser;
+  try {
+    browser = await chromium.launch({ headless: true });
+    return "Browser automation is ready.";
+  } catch (error) {
+    return `Browser automation is not ready: ${error.message}`;
+  } finally {
+    await browser?.close().catch(() => {});
+  }
 }
 
 async function fillFirstMatch(page, patterns, value) {

@@ -103,7 +103,7 @@ $env:AUTO_SUBMIT="1"
 $env:OLLAMA_MODEL="llama3.1:8b"
 ```
 
-Run a fully automated pass that searches, scores, prepares the packet, and then fills the best match:
+Run an autopilot pass that searches, scores, prepares the packet, and then fills the best match:
 
 ```bash
 $env:AUTO_SUBMIT="1"
@@ -117,6 +117,8 @@ Check your local setup:
 ```bash
 npm run doctor
 ```
+
+`npm run doctor` now checks project files, profile/resume loading, Ollama reachability, and browser automation readiness.
 
 See the parsed resume structure:
 
