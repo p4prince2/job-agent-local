@@ -11,7 +11,9 @@
     "init": "node ./src/cli.mjs init",
     "doctor": "node ./src/cli.mjs doctor",
     "search": "node ./src/cli.mjs search",
-    "profile": "node ./src/cli.mjs profile"
+    "profile": "node ./src/cli.mjs profile",
+    "track": "node ./src/cli.mjs track",
+    "autopilot": "node ./src/cli.mjs autopilot"
   },
   "engines": {
     "node": ">=18"

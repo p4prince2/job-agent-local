@@ -60,6 +60,15 @@ async function main() {
     const query = args.join(" ").trim();
     const result = await runAutopilot({ query });
     process.stdout.write(result.report + "\n");
+
+    if (result.browserSession && process.env.AUTO_SUBMIT !== "1") {
+      process.stdout.write("Review the page in the browser. I will wait here until you press Enter.\n");
+      await waitForEnter();
+      await result.browserSession.browser.close().catch(() => {});
+    } else if (result.browserSession) {
+      await result.browserSession.browser.close().catch(() => {});
+    }
+
     return;
   }
 
@@ -101,11 +110,7 @@ async function main() {
     process.stdout.write(`Fields filled: ${browserSession.fieldsFilled.length ? browserSession.fieldsFilled.join(", ") : "none"}\n`);
     process.stdout.write(`Screenshot saved: ${browserSession.screenshotPath}\n`);
     process.stdout.write("Review the page in the browser. I will wait here until you press Enter.\n");
-
-    const rl = createInterface({ input, output });
-    await rl.question("");
-    rl.close();
-
+    await waitForEnter();
     await browserSession.browser.close().catch(() => {});
     return;
   }
@@ -117,4 +122,10 @@ main().catch((error) => {
   process.stderr.write(`${error.message}\n`);
   process.exitCode = 1;
 });
+
+async function waitForEnter() {
+  const rl = createInterface({ input, output });
+  await rl.question("");
+  rl.close();
+}
 

@@ -39,9 +39,8 @@ export async function runAutopilot({ query }) {
 
   const autoSubmitEnabled = process.env.AUTO_SUBMIT === "1";
   let browserSession = null;
-  if (autoSubmitEnabled && job.applicationUrl) {
+  if (job.applicationUrl) {
     browserSession = await runBrowserAssist({ packet, applicationUrl: job.applicationUrl });
-    await browserSession.browser.close().catch(() => {});
   }
 
   return {
@@ -51,7 +50,15 @@ export async function runAutopilot({ query }) {
     packet,
     record,
     browserSession,
-    report: buildAutopilotReport({ query: searchQuery, chosenJob: job, analysis, packet, autoSubmitEnabled })
+    report: buildAutopilotReport({
+      query: searchQuery,
+      chosenJob: job,
+      analysis,
+      packet,
+      autoSubmitEnabled,
+      browserOpened: Boolean(browserSession),
+      browserReviewRequired: Boolean(browserSession) && !autoSubmitEnabled
+    })
   };
 }
 
@@ -68,7 +75,7 @@ function safeApplicationUrl(job) {
   return normalizeApplicationUrl(url);
 }
 
-function buildAutopilotReport({ query, chosenJob, analysis, packet, autoSubmitEnabled }) {
+function buildAutopilotReport({ query, chosenJob, analysis, packet, autoSubmitEnabled, browserOpened, browserReviewRequired }) {
   return [
     "# Autopilot Run",
     "",
@@ -80,8 +87,11 @@ function buildAutopilotReport({ query, chosenJob, analysis, packet, autoSubmitEn
     `Packet: ${packet.outputDir}`,
     `Auto submit: ${autoSubmitEnabled ? "enabled" : "disabled"}`,
     "",
-    autoSubmitEnabled
-      ? "Autopilot filled the application page and attempted submit if a matching button was found."
-      : "Autopilot prepared everything and left the browser step in review mode."
+    !browserOpened
+      ? "Autopilot prepared the packet, but this role did not expose a usable application URL."
+      : autoSubmitEnabled
+        ? "Autopilot filled the application page and attempted submit if a matching button was found."
+        : "Autopilot filled the application page and left the browser open for your review before submit.",
+    browserReviewRequired ? "Press Enter in the terminal after reviewing the browser page." : ""
   ].join("\n");
 }

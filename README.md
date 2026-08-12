@@ -17,7 +17,7 @@ This scaffold is meant to mirror the useful parts of projects like `career-ops` 
 2. Pull a model with `ollama pull llama3.1:8b`.
 3. Run `npm install`.
 4. Run `npm run init`.
-5. Start with `node src/cli.mjs search "AI Engineer"` or `node src/cli.mjs autopilot "AI Engineer"`.
+5. Start with `node src/cli.mjs search "AI Engineer"` or `npm run autopilot -- "AI Engineer"`.
 
 ## What you need
 
@@ -110,7 +110,7 @@ $env:AUTO_SUBMIT="1"
 node src/cli.mjs autopilot "AI Engineer"
 ```
 
-Without `AUTO_SUBMIT=1`, the autopilot will still search and prepare the packet, but it will stop before submitting.
+Without `AUTO_SUBMIT=1`, the autopilot will still search, prepare the packet, open the application page, fill common fields, and then wait for your review before submitting.
 
 Check your local setup:
 
@@ -130,11 +130,18 @@ Search public job sources and save the results into the tracker:
 node src/cli.mjs search "AI Engineer"
 ```
 
+See the saved tracker entries:
+
+```bash
+npm run track
+```
+
 ## Troubleshooting
 
 - If you see `DNS_PROBE_FINISHED_NXDOMAIN`, the URL is a placeholder or typo, not a real application page.
 - If `npm run doctor` cannot reach Ollama, start Ollama first and confirm `http://localhost:11434` is open.
 - If the browser helper pauses before submit, that is the review-first default unless `AUTO_SUBMIT=1` is set.
+- If autopilot finds a job but does not open a browser, that role likely did not expose a usable application URL.
 
 ## Environment
 
