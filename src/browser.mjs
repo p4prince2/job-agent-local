@@ -121,8 +121,10 @@ export function normalizeApplicationUrl(applicationUrl) {
   return parsed.toString();
 }
 
-async function launchBrowser() {
-  const headless = process.env.BROWSER_HEADLESS === "1";
+async function launchBrowser({ headless } = {}) {
+  const resolvedHeadless = typeof headless === "boolean"
+    ? headless
+    : process.env.BROWSER_HEADLESS === "1";
   const candidates = [
     { channel: "msedge" },
     { channel: "chrome" },
@@ -133,7 +135,7 @@ async function launchBrowser() {
   for (const candidate of candidates) {
     try {
       return await chromium.launch({
-        headless,
+        headless: resolvedHeadless,
         ...candidate
       });
     } catch (error) {
@@ -147,7 +149,7 @@ async function launchBrowser() {
 export async function checkBrowserAutomation() {
   let browser;
   try {
-    browser = await chromium.launch({ headless: true });
+    browser = await launchBrowser({ headless: true });
     return "Browser automation is ready.";
   } catch (error) {
     return `Browser automation is not ready: ${error.message}`;
