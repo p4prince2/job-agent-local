@@ -19,14 +19,14 @@ export async function runAutopilot({ query }) {
       ...job,
       match: scoreJobMatch({ job, resume, profile })
     }))
-    .filter((job) => Boolean(job.applicationUrl || job.jobUrl))
     .sort((left, right) => Number(right.match.score) - Number(left.match.score));
 
   if (scoredJobs.length === 0) {
     throw new Error(buildNoJobsMessage(searchQuery, diagnostics));
   }
 
-  const chosen = scoredJobs.find((job) => job.match.decision === "apply") ?? scoredJobs[0];
+  const chosen = selectPreferredJob(scoredJobs);
+  const applicationUrlStatus = describeApplicationUrl(chosen);
   const job = {
     ...chosen,
     text: chosen.description ?? chosen.text ?? "",
@@ -59,7 +59,8 @@ export async function runAutopilot({ query }) {
       autoSubmitEnabled,
       browserOpened: Boolean(browserSession),
       browserReviewRequired: Boolean(browserSession) && !autoSubmitEnabled,
-      diagnostics
+      diagnostics,
+      applicationUrlStatus
     })
   };
 }
@@ -74,10 +75,14 @@ function safeApplicationUrl(job) {
   if (!url) {
     return "";
   }
-  return normalizeApplicationUrl(url);
+  try {
+    return normalizeApplicationUrl(url);
+  } catch {
+    return "";
+  }
 }
 
-function buildAutopilotReport({ query, chosenJob, analysis, packet, autoSubmitEnabled, browserOpened, browserReviewRequired, diagnostics }) {
+function buildAutopilotReport({ query, chosenJob, analysis, packet, autoSubmitEnabled, browserOpened, browserReviewRequired, diagnostics, applicationUrlStatus }) {
   return [
     "# Autopilot Run",
     "",
@@ -86,6 +91,7 @@ function buildAutopilotReport({ query, chosenJob, analysis, packet, autoSubmitEn
     `Match score: ${chosenJob.match.score}`,
     `Decision: ${analysis.decision}`,
     `Application URL: ${chosenJob.applicationUrl || chosenJob.jobUrl || "n/a"}`,
+    `Application URL status: ${applicationUrlStatus}`,
     `Packet: ${packet.outputDir}`,
     `Auto submit: ${autoSubmitEnabled ? "enabled" : "disabled"}`,
     `Sources: ${formatSourceSummary(diagnostics)}`,
@@ -119,4 +125,36 @@ function formatSourceSummary(diagnostics = []) {
   return diagnostics
     .map((item) => (item.ok ? `${item.source} ok` : `${item.source} failed`))
     .join(", ");
+}
+
+function selectPreferredJob(scoredJobs) {
+  const applyWithUsableUrl = scoredJobs.find((job) => job.match.decision === "apply" && hasUsableApplicationUrl(job));
+  if (applyWithUsableUrl) {
+    return applyWithUsableUrl;
+  }
+
+  const bestWithUsableUrl = scoredJobs.find((job) => hasUsableApplicationUrl(job));
+  if (bestWithUsableUrl) {
+    return bestWithUsableUrl;
+  }
+
+  return scoredJobs.find((job) => job.match.decision === "apply") ?? scoredJobs[0];
+}
+
+function hasUsableApplicationUrl(job) {
+  return Boolean(safeApplicationUrl(job));
+}
+
+function describeApplicationUrl(job) {
+  const rawUrl = job.applicationUrl || job.jobUrl || "";
+  if (!rawUrl) {
+    return "missing";
+  }
+
+  try {
+    normalizeApplicationUrl(rawUrl);
+    return "usable";
+  } catch (error) {
+    return `invalid (${error.message})`;
+  }
 }
