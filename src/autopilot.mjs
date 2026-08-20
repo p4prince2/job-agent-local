@@ -4,7 +4,7 @@ import { parseResume } from "./resume-parser.mjs";
 import { fetchJobsForQuery } from "./job-sources.mjs";
 import { scoreJobMatch } from "./matcher.mjs";
 import { runBrowserAssist, normalizeApplicationUrl } from "./browser.mjs";
-
+ 
 export async function runAutopilot({ query }) {
   await ensureProjectFiles({ forceExamples: false });
 
