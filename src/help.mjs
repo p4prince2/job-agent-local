@@ -3,7 +3,7 @@ export function formatHelp() {
     "Job Agent Local",
     "",
     "Commands:",
-    "  init                Create local config and example files",
+    "  init                Create local config and example files", 
     "  doctor              Check Ollama and project setup",
     "  profile             Print parsed resume structure",
     "  search [query]      Search public job sources and score matches",
