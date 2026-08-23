@@ -10,7 +10,7 @@ export async function doctor() {
     loadProfile(),
     loadResume(),
     loadTracker()
-  ]);
+  ]); 
 
   process.stdout.write(`Project files: ready\n`);
   process.stdout.write(`Profile: ${profile.name || "Unknown"}\n`);
