@@ -13,7 +13,7 @@ export async function resolveInput(value) {
   const maybeFile = isAbsolute(value) ? value : resolve(process.cwd(), value);
   if (await isReadableFile(maybeFile)) {
     const content = await readFile(maybeFile, "utf8");
-    return buildJobFromText(content, maybeFile);
+    return buildJobFromText(content, maybeFile); 
   }
 
   return buildJobFromText(value, "pasted-text");
