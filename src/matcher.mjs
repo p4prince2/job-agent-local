@@ -10,7 +10,7 @@ export function scoreJobMatch({ job, resume, profile }) {
   const resumeTokens = tokenize(resumeText);
   const overlap = intersectionSize(jobTokens, resumeTokens);
   const skillOverlap = overlap / Math.max(jobTokens.size, 1);
-
+ 
   const matchingSkills = pickMatches(resume.skills, jobText);
   const missingSkills = pickMissing(profile, jobText);
   const roleFit = roleSignals.some((signal) => jobText.toLowerCase().includes(signal)) ? 1 : 0;
