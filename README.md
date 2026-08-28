@@ -3,7 +3,7 @@
 A local-first job application agent you can run with free AI models like Ollama.
 
 This scaffold is meant to mirror the useful parts of projects like `career-ops` without depending on a paid model provider:
-
+ 
 - score a job against your CV
 - draft tailored answers and a resume focus
 - generate a per-job PDF resume packet
