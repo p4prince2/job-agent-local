@@ -12,7 +12,7 @@ This scaffold is meant to mirror the useful parts of projects like `career-ops` 
 - keep auto-submit optional behind an explicit setting
 
 ## Quick Start
-
+ 
 1. Install `Node.js` and `Ollama`.
 2. Pull a model with `ollama pull llama3.1:8b`.
 3. Run `npm install`.
