@@ -8,7 +8,7 @@ This scaffold is meant to mirror the useful parts of projects like `career-ops` 
 - draft tailored answers and a resume focus
 - generate a per-job PDF resume packet
 - create a browser handoff with a review-first default
-- keep a simple application log
+- keep a simple application log 
 - keep auto-submit optional behind an explicit setting
 
 ## Quick Start
