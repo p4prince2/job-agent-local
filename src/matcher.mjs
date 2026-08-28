@@ -1,7 +1,7 @@
 import { tokenize, uniqueStrings } from "./utils.mjs";
 
 const roleSignals = ["ai", "ml", "machine learning", "llm", "genai", "generative ai", "rag", "agent", "python", "nlu", "nlp"];
-
+ 
 export function scoreJobMatch({ job, resume, profile }) {
   const jobText = `${job.title}\n${job.description}\n${job.location}\n${(job.tags ?? []).join(" ")}`;
   const resumeText = `${resume.summary}\n${resume.skills.join(" ")}\n${resume.projects.map((item) => item.title).join(" ")}\n${profile.summary ?? ""}`;
