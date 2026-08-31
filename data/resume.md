@@ -10,7 +10,7 @@ AI/ML Engineer specializing in Generative AI, LLMs, RAG, AI Agents, LangChain, a
 
 **Feb 2025 – Oct 2025 | Remote**
 
-* Built a real-time driver state monitoring system using face analysis, gaze estimation, and temporal modeling.
+* Built a real-time driver state monitoring system using face analysis, gaze estimation, and temporal modeling. 
 * Developed fatigue and distraction detection achieving **94% precision**.
 * Worked with Python, PyTorch, TensorFlow, OpenCV, DeepFACE, RetinaFace, and gaze estimation.
 
