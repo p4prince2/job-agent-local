@@ -9,25 +9,46 @@ const applicationsPath = join(dataDir, "applications.json");
 const profilePath = join(dataDir, "profile.json");
 const resumePath = join(dataDir, "resume.md");
 
+const templatesDir = join(root, "templates");
+const templateProfilePath = join(templatesDir, "profile.example.json");
+const templateResumePath = join(templatesDir, "resume.example.md");
+
 export const paths = {
   root,
   dataDir,
   outputDir,
+  templatesDir,
   applicationsPath,
   profilePath,
-  resumePath
+  resumePath,
+  templateProfilePath,
+  templateResumePath
 };
 
 export async function ensureProjectFiles({ forceExamples }) {
   await mkdir(dataDir, { recursive: true });
   await mkdir(outputDir, { recursive: true });
 
-  if (forceExamples || !(await exists(profilePath))) {
+  if (!(await exists(profilePath))) {
     await writeFile(profilePath, JSON.stringify(await defaultProfile(), null, 2) + "\n", "utf8");
+  } else if (forceExamples) {
+    try {
+      const existing = JSON.parse(await readFile(profilePath, "utf8"));
+      if (existing.name === "Your Name" || !existing.name) {
+        await writeFile(profilePath, JSON.stringify(await defaultProfile(), null, 2) + "\n", "utf8");
+      }
+    } catch {}
   }
 
-  if (forceExamples || !(await exists(resumePath))) {
-    await writeFile(resumePath, defaultResume(), "utf8");
+  if (!(await exists(resumePath))) {
+    await writeFile(resumePath, await defaultResume(), "utf8");
+  } else if (forceExamples) {
+    try {
+      const existing = await readFile(resumePath, "utf8");
+      if (existing.includes("# Your Name")) {
+        await writeFile(resumePath, await defaultResume(), "utf8");
+      }
+    } catch {}
   }
 
   if (!(await exists(applicationsPath))) {
@@ -67,11 +88,13 @@ export async function writeApplicationRecord(packet) {
   const record = {
     id: randomUUID(),
     createdAt: new Date().toISOString(),
+    kind: "application",
     company: packet.job.company,
     title: packet.job.title,
     source: packet.job.source,
     score: packet.analysis.score,
     decision: packet.analysis.decision,
+    status: packet.analysis.decision === "apply" ? "DRAFTED" : (packet.analysis.decision?.toUpperCase?.() || "DRAFTED"),
     outputDir: packet.outputDir
   };
 
@@ -143,8 +166,18 @@ async function exists(path) {
 }
 
 async function defaultProfile() {
+  if (await exists(templateProfilePath)) {
+    try {
+      return JSON.parse(await readFile(templateProfilePath, "utf8"));
+    } catch {}
+  }
   return {
     name: "Your Name",
+    email: "your.name@example.com",
+    phone: "+1-555-0100",
+    linkedin: "https://linkedin.com/in/your-profile",
+    github: "https://github.com/your-github",
+    portfolio: "https://your-portfolio.com",
     headline: "AI / Automation / Product",
     location: "Remote",
     target_roles: ["AI Engineer", "Agent Engineer", "Product Engineer"],
@@ -155,7 +188,12 @@ async function defaultProfile() {
   };
 }
 
-function defaultResume() {
+async function defaultResume() {
+  if (await exists(templateResumePath)) {
+    try {
+      return await readFile(templateResumePath, "utf8");
+    } catch {}
+  }
   return [
     "# Your Name",
     "",
@@ -167,8 +205,8 @@ function defaultResume() {
     "",
     "### Company Name - Role",
     "",
-    "- Impact statement",
-    "- Another achievement",
+    "- Built impactful automation workflows",
+    "- Led engineering initiatives",
     "",
     "## Skills",
     "",

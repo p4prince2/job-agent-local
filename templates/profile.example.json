@@ -1,5 +1,10 @@
 {
   "name": "Your Name",
+  "email": "your.name@example.com",
+  "phone": "+1-555-0100",
+  "linkedin": "https://linkedin.com/in/your-profile",
+  "github": "https://github.com/your-github",
+  "portfolio": "https://your-portfolio.com",
   "headline": "AI / Automation / Product",
   "location": "Remote",
   "target_roles": ["AI Engineer", "Agent Engineer", "Product Engineer"], 

@@ -22,8 +22,9 @@ export function analyzeLocally({ job, profile, resume }) {
   if (!matchesAny(profileTokens, jobTokens)) {
     gaps.push("There is limited direct overlap between the pasted profile and this job description.");
   }
-  if (!resume.includes("Impact")) {
-    gaps.push("The resume template may need stronger quantified outcomes.");
+  const hasQuantifiedMetrics = /\d+[%xX]|\b\d+\s*(?:k|m|million|billion|users|clients|hours|days|percent)\b|\$\d+/i.test(resume);
+  if (!hasQuantifiedMetrics) {
+    gaps.push("The resume may benefit from more quantified outcomes and business impact metrics.");
   }
 
   const resumeFocus = [

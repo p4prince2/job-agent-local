@@ -15,21 +15,35 @@ export function createAnalysisModel() {
     };
   }
 
+  const configuredModel = process.env.OLLAMA_MODEL || "llama3.2:latest";
+
   return {
     provider: "ollama",
-    modelName: process.env.OLLAMA_MODEL || "qwen2.5-coder:32b",
+    modelName: configuredModel,
     healthcheck: async () => {
       try {
         const response = await fetch(`${defaultOllamaBaseUrl}/api/tags`);
         if (!response.ok) {
           return `Ollama responded with ${response.status} ${response.statusText}`;
         }
-        return "Ollama is reachable.";
+        const data = await response.json();
+        const models = Array.isArray(data.models) ? data.models.map((m) => m.name) : [];
+        if (models.length === 0) {
+          return "Ollama is reachable, but no models are installed. Run `ollama pull llama3.2` to install one.";
+        }
+        const exactOrPrefixMatch = models.some((m) => m === configuredModel || m.startsWith(configuredModel.split(":")[0]));
+        if (exactOrPrefixMatch) {
+          return `Ollama is reachable. Model "${configuredModel}" is ready.`;
+        }
+        return `Ollama is reachable. Note: configured model "${configuredModel}" not found. Installed: ${models.join(", ")}`;
       } catch (error) {
-        return `Ollama is not reachable: ${error.message}`;
+        return `Ollama is not reachable at ${defaultOllamaBaseUrl}: ${error.message}`;
       }
     },
-    generate: generateViaOllama
+    generate: async (options) => {
+      const targetModel = options.model || configuredModel;
+      return generateViaOllama({ ...options, model: targetModel });
+    }
   };
 }
 

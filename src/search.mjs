@@ -2,7 +2,7 @@ import { loadProfile, loadResume } from "./storage.mjs";
 import { parseResume } from "./resume-parser.mjs";
 import { fetchJobsForQuery } from "./job-sources.mjs";
 import { scoreJobMatch } from "./matcher.mjs";
-import { appendTrackerRecord, isDuplicateJob, loadTracker } from "./tracker.mjs";
+import { batchAppendTrackerRecords, isDuplicateJob, loadTracker } from "./tracker.mjs";
 
 export async function searchJobs({ query, limit = 20 }) {
   const profile = await loadProfile();
@@ -11,7 +11,7 @@ export async function searchJobs({ query, limit = 20 }) {
   const tracker = await loadTracker();
   const searchQuery = query || buildDefaultQuery(profile);
   const { jobs, diagnostics } = await fetchJobsForQuery(searchQuery, { profile, resume });
-  const results = [];
+  const newRecords = [];
 
   for (const job of jobs.slice(0, limit * 2)) {
     const match = scoreJobMatch({ job, resume, profile });
@@ -38,13 +38,14 @@ export async function searchJobs({ query, limit = 20 }) {
       notes: match.reason
     };
 
-    if (isDuplicateJob(tracker, record)) {
+    if (isDuplicateJob([...tracker, ...newRecords], record)) {
       continue;
     }
 
-    const saved = await appendTrackerRecord(record);
-    results.push(saved);
+    newRecords.push(record);
   }
+
+  const results = await batchAppendTrackerRecords(newRecords);
 
   const strongMatches = results.filter((item) => Number(item.score) >= 75);
   const skipped = results.filter((item) => item.status === "SKIPPED");

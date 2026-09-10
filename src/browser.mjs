@@ -4,14 +4,16 @@ import { join } from "node:path";
 
 const namedFieldPatterns = [
   { key: "fullName", valueKey: "name", patterns: [/full name/i, /^name$/i, /applicant name/i] },
-  { key: "email", valueKey: "email", patterns: [/email/i] },
-  { key: "phone", valueKey: "phone", patterns: [/phone/i, /mobile/i, /cell/i] },
-  { key: "location", valueKey: "location", patterns: [/location/i, /city/i, /current location/i] },
+  { key: "firstName", valueKey: "firstName", patterns: [/first name/i, /given name/i, /^first$/i] },
+  { key: "lastName", valueKey: "lastName", patterns: [/last name/i, /family name/i, /surname/i, /^last$/i] },
+  { key: "email", valueKey: "email", patterns: [/email/i, /e-mail/i] },
+  { key: "phone", valueKey: "phone", patterns: [/phone/i, /mobile/i, /cell/i, /telephone/i] },
+  { key: "location", valueKey: "location", patterns: [/location/i, /city/i, /current location/i, /address/i] },
   { key: "linkedin", valueKey: "linkedin", patterns: [/linkedin/i] },
   { key: "github", valueKey: "github", patterns: [/github/i] },
-  { key: "portfolio", valueKey: "portfolio", patterns: [/portfolio/i, /website/i, /personal site/i] },
+  { key: "portfolio", valueKey: "portfolio", patterns: [/portfolio/i, /website/i, /personal site/i, /personal url/i] },
   { key: "headline", valueKey: "headline", patterns: [/headline/i, /current title/i, /desired title/i] },
-  { key: "summary", valueKey: "summary", patterns: [/summary/i, /about you/i, /bio/i, /profile/i] },
+  { key: "summary", valueKey: "summary", patterns: [/summary/i, /about you/i, /bio/i, /profile/i, /cover letter/i] },
   { key: "salary", valueKey: "salary", patterns: [/salary/i, /compensation/i, /expected pay/i, /desired salary/i] }
 ];
 
@@ -31,8 +33,26 @@ export async function runBrowserAssist({ packet, applicationUrl }) {
   await page.goto(normalizedUrl, { waitUntil: "domcontentloaded" });
   await page.waitForLoadState("networkidle").catch(() => {});
 
+  // If on an aggregator page (e.g. Remotive), check for direct apply links
+  try {
+    const directApplyLink = page.locator('a[href*="greenhouse.io"], a[href*="lever.co"], a[href*="ashbyhq.com"], a[href*="workday.com"], a:has-text("Apply for this position"), a:has-text("Apply on company website")').first();
+    if ((await directApplyLink.count()) > 0 && (await directApplyLink.isVisible().catch(() => false))) {
+      const href = await directApplyLink.getAttribute("href").catch(() => null);
+      if (href && /^https?:\/\//i.test(href)) {
+        await page.goto(href, { waitUntil: "domcontentloaded" }).catch(() => {});
+        await page.waitForLoadState("networkidle").catch(() => {});
+      }
+    }
+  } catch {}
+
   const fieldsFilled = [];
-  const profile = packet.profile ?? {};
+  const rawProfile = packet.profile ?? {};
+  const nameParts = (rawProfile.name || "").trim().split(/\s+/);
+  const profile = {
+    ...rawProfile,
+    firstName: rawProfile.firstName || nameParts[0] || "",
+    lastName: rawProfile.lastName || nameParts.slice(1).join(" ") || ""
+  };
   const analysis = packet.analysis ?? {};
   const applicationAnswers = analysis.application_answers ?? {};
 
@@ -189,21 +209,18 @@ async function fillFirstMatch(page, patterns, value) {
 
 async function tryClickSubmit(page) {
   const patterns = [
-    /submit/i,
-    /apply now/i,
     /submit application/i,
     /send application/i,
     /complete application/i,
-    /finish/i
+    /^submit$/i,
+    /submit your application/i
   ];
 
   for (const pattern of patterns) {
     const candidates = [
       page.getByRole("button", { name: pattern }),
-      page.getByRole("link", { name: pattern }),
-      page.getByText(pattern, { exact: false }),
-      page.locator('input[type="submit"]'),
-      page.locator('button[type="submit"]')
+      page.locator('button[type="submit"]'),
+      page.locator('input[type="submit"]')
     ];
 
     for (const locator of candidates) {

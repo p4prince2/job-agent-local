@@ -38,12 +38,15 @@ export async function fetchJobsForQuery(query, options = {}) {
 async function fetchRemotiveJobs(query) {
   const url = new URL("https://remotive.com/api/remote-jobs");
   if (query) {
-    url.searchParams.set("search", query);
+    const firstClause = String(query).split(/\s+(?:or|\|)\s+|\s*,\s*/i)[0].trim();
+    if (firstClause) {
+      url.searchParams.set("search", firstClause);
+    }
   }
 
   const response = await fetch(url, {
     headers: {
-      "user-agent": "job-agent-local/0.1"
+      "user-agent": "job-agent-local/0.1 (compatible; local job bot)"
     }
   });
   if (!response.ok) {
@@ -52,7 +55,8 @@ async function fetchRemotiveJobs(query) {
 
   const payload = await response.json();
   const jobs = Array.isArray(payload.jobs) ? payload.jobs : [];
-  return jobs.map((job) => normalizeRemotiveJob(job));
+  const normalized = jobs.map((job) => normalizeRemotiveJob(job));
+  return query ? normalized.filter((job) => matchesJobQuery(job, query)) : normalized;
 }
 
 async function fetchArbeitnowJobs(query) {
@@ -79,14 +83,43 @@ async function fetchArbeitnowJobs(query) {
   }
 
   if (query) {
-    const queryTokens = String(query).toLowerCase().split(/\s+/).filter(Boolean);
-    return jobs.filter((job) => {
-      const haystack = `${job.title} ${job.company} ${job.description} ${job.location}`.toLowerCase();
-      return queryTokens.every((token) => haystack.includes(token));
-    });
+    return jobs.filter((job) => matchesJobQuery(job, query));
   }
 
   return jobs;
+}
+
+export function matchesJobQuery(job, query) {
+  if (!query || !String(query).trim()) {
+    return true;
+  }
+
+  const haystack = `${job.title} ${job.company} ${job.description} ${(job.tags || []).join(" ")} ${job.location}`.toLowerCase();
+  
+  const clauses = String(query)
+    .split(/\s+(?:or|\|)\s+|\s*,\s*/i)
+    .map((c) => c.trim())
+    .filter(Boolean);
+
+  if (clauses.length > 1) {
+    return clauses.some((clause) => matchesClause(haystack, clause));
+  }
+
+  return matchesClause(haystack, query);
+}
+
+function matchesClause(haystack, clause) {
+  const tokens = String(clause)
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter((t) => t.length >= 2 && !["and", "the", "for", "with", "or"].includes(t));
+
+  if (tokens.length === 0) {
+    return true;
+  }
+
+  return tokens.every((token) => haystack.includes(token));
 }
 
 function normalizeRemotiveJob(job) {

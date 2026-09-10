@@ -9,24 +9,27 @@ export function scoreJobMatch({ job, resume, profile }) {
   const jobTokens = tokenize(jobText);
   const resumeTokens = tokenize(resumeText);
   const overlap = intersectionSize(jobTokens, resumeTokens);
-  const skillOverlap = overlap / Math.max(jobTokens.size, 1);
- 
+
   const matchingSkills = pickMatches(resume.skills, jobText);
   const missingSkills = pickMissing(profile, jobText);
+
+  // Skill overlap calculation: weight explicit resume skills match + general vocabulary overlap
+  const skillRatio = resume.skills.length > 0 ? matchingSkills.length / Math.min(resume.skills.length, 8) : 0;
+  const tokenRatio = resumeTokens.size > 0 ? overlap / Math.min(resumeTokens.size, 60) : 0;
+  const skillOverlap = Math.min(1, skillRatio * 0.65 + tokenRatio * 0.35);
+
   const roleFit = roleSignals.some((signal) => jobText.toLowerCase().includes(signal)) ? 1 : 0;
-  const remoteFit = /remote/i.test(job.location || job.description || "") ? 1 : 0;
-  const indiaFit = /india|hyderabad|bengaluru|bangalore|pune|delhi|gurgaon|gurugram|noida|mumbai|chennai/i.test(job.location || job.description || "") ? 1 : 0;
+  const locationFit = estimateLocationFit(job, profile);
   const experienceFit = estimateExperienceFit(job.description, resume.monthsExperience);
 
   const rawScore =
-    skillOverlap * 45 +
-    roleFit * 20 +
-    remoteFit * 10 +
-    indiaFit * 10 +
-    experienceFit * 15;
+    skillOverlap * 40 +
+    roleFit * 25 +
+    locationFit * 15 +
+    experienceFit * 20;
 
   const score = Math.max(0, Math.min(100, Math.round(rawScore)));
-  const decision = score >= 75 ? "apply" : score >= 55 ? "review" : "skip";
+  const decision = score >= 70 ? "apply" : score >= 45 ? "review" : "skip";
 
   return {
     score,
@@ -36,8 +39,28 @@ export function scoreJobMatch({ job, resume, profile }) {
     reason: buildReason(score, matchingSkills, missingSkills, job),
     experienceRequirement: extractExperienceRequirement(job.description),
     myRelevantExperience: summarizeRelevantExperience(resume),
-    locationFit: remoteFit || indiaFit
+    locationFit: locationFit >= 0.7
   };
+}
+
+export function estimateLocationFit(job, profile) {
+  const jobLoc = `${job.location || ""} ${job.description || ""}`.toLowerCase();
+  const isJobRemote = /remote|anywhere|work from home|wfh/i.test(jobLoc) || Boolean(job.remote);
+  const wantsRemote = /remote/i.test(profile?.location || "") ||
+    (Array.isArray(profile?.must_haves) && profile.must_haves.some((m) => /remote/i.test(m)));
+
+  if (isJobRemote && wantsRemote) {
+    return 1;
+  }
+
+  if (profile?.location && typeof profile.location === "string") {
+    const tokens = profile.location.toLowerCase().split(/[\s,]+/).filter((t) => t.length > 2 && t !== "remote");
+    if (tokens.some((token) => jobLoc.includes(token))) {
+      return 1;
+    }
+  }
+
+  return isJobRemote ? 0.8 : 0.3;
 }
 
 function pickMatches(resumeSkills, jobText) {

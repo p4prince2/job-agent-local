@@ -2,6 +2,11 @@
 
 { 
   "name": "Prince Kushwaha",
+  "email": "prince.kushwaha@example.com",
+  "phone": "+91-9876543210",
+  "linkedin": "https://linkedin.com/in/prince-kushwaha",
+  "github": "https://github.com/p4prince2",
+  "portfolio": "https://princekushwaha.dev",
   "headline": "AI Engineer | Generative AI | LLMs | RAG | AI Agents",
   "location": "Remote",
   "target_roles": [

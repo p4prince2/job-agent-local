@@ -10,17 +10,24 @@ export async function loadTracker() {
 }
 
 export async function appendTrackerRecord(record) {
-  const records = await loadTracker();
-  const nextRecord = {
+  return (await batchAppendTrackerRecords([record]))[0];
+}
+
+export async function batchAppendTrackerRecords(records) {
+  if (!records || records.length === 0) {
+    return [];
+  }
+  const existing = await loadTracker();
+  const nextRecords = records.map((record) => ({
     id: record.id ?? randomUUID(),
     createdAt: record.createdAt ?? new Date().toISOString(),
     kind: record.kind ?? "discovery",
     ...record
-  };
+  }));
 
-  records.push(nextRecord);
-  await writeFile(paths.applicationsPath, JSON.stringify(records, null, 2) + "\n", "utf8");
-  return nextRecord;
+  const combined = [...existing, ...nextRecords];
+  await writeFile(paths.applicationsPath, JSON.stringify(combined, null, 2) + "\n", "utf8");
+  return nextRecords;
 }
 
 export async function replaceTrackerRecords(records) {

@@ -1,6 +1,5 @@
 import { ensureProjectFiles, loadProfile, loadResume } from "./storage.mjs";
 import { createAnalysisModel } from "./provider.mjs";
-import { checkBrowserAutomation } from "./browser.mjs";
 import { loadTracker } from "./tracker.mjs";
 
 export async function doctor() {
@@ -19,9 +18,18 @@ export async function doctor() {
   process.stdout.write(`AI provider: ${model.provider}\n`);
   process.stdout.write(`Model: ${model.modelName}\n`);
 
+  const checkBrowser = async () => {
+    try {
+      const { checkBrowserAutomation } = await import("./browser.mjs");
+      return await checkBrowserAutomation();
+    } catch (error) {
+      return `Browser automation is not ready: ${error.message}`;
+    }
+  };
+
   const [modelStatus, browserStatus] = await Promise.all([
     model.healthcheck(),
-    checkBrowserAutomation()
+    checkBrowser()
   ]);
   process.stdout.write(`${modelStatus}\n`);
   process.stdout.write(`${browserStatus}\n`);

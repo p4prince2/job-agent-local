@@ -55,9 +55,12 @@ If you are starting from a fresh machine, install these in this order:
 
 Good starting models:
 
-- `qwen2.5-coder:32b`
+- `llama3.2:latest` (fast, 2.0GB, works great out of the box)
 - `llama3.1:8b`
+- `qwen2.5-coder:32b`
 - `gemma3:27b`
+
+The agent automatically detects whichever model you have installed in Ollama if `OLLAMA_MODEL` is not explicitly set.
 
 ## Setup
 
@@ -118,7 +121,14 @@ Check your local setup:
 npm run doctor
 ```
 
-`npm run doctor` now checks project files, profile/resume loading, Ollama reachability, and browser automation readiness.
+`npm run doctor` checks project files, profile/resume loading, Ollama reachability, installed models, and browser automation readiness.
+
+Run the test suite:
+
+```bash
+npm test
+```
+
 
 See the parsed resume structure:
 

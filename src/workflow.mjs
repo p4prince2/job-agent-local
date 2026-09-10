@@ -27,6 +27,7 @@ export async function analyzeJob({ job, profile, resume }) {
     });
     modelOutput = parseJsonLoose(raw);
   } catch (error) {
+    process.stderr.write(`[Notice] LLM generation skipped (${error.message}). Using local heuristic signals.\n`);
     modelOutput = null;
   }
 

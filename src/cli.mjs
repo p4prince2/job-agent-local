@@ -5,8 +5,6 @@ import { ensureProjectFiles, loadProfile, loadResume, writeApplicationRecord, lo
 import { doctor } from "./doctor.mjs";
 import { formatHelp } from "./help.mjs";
 import { resolveInput } from "./input.mjs";
-import { runBrowserAssist } from "./browser.mjs";
-import { runAutopilot } from "./autopilot.mjs";
 import { stdin as input, stdout as output } from "node:process";
 import { createInterface } from "node:readline/promises";
 import { parseResume } from "./resume-parser.mjs";
@@ -57,6 +55,7 @@ async function main() {
   }
 
   if (command === "autopilot") {
+    const { runAutopilot } = await import("./autopilot.mjs");
     const query = args.join(" ").trim();
     const result = await runAutopilot({ query });
     process.stdout.write(result.report + "\n");
@@ -103,6 +102,7 @@ async function main() {
     }
 
     await ensureProjectFiles({ forceExamples: false });
+    const { runBrowserAssist } = await import("./browser.mjs");
     const packet = await loadLatestPacket();
     const browserSession = await runBrowserAssist({ packet, applicationUrl: target });
 

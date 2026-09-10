@@ -13,7 +13,8 @@
     "search": "node ./src/cli.mjs search",
     "profile": "node ./src/cli.mjs profile",
     "track": "node ./src/cli.mjs track",
-    "autopilot": "node ./src/cli.mjs autopilot"
+    "autopilot": "node ./src/cli.mjs autopilot",
+    "test": "node --test test/**/*.test.mjs"
   },
   "engines": {
     "node": ">=18"

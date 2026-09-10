@@ -102,7 +102,7 @@ function normalizeLines(lines) {
 }
 
 function wrapLine(line) {
-  const cleaned = sanitizeText(line);
+  const cleaned = cleanMarkdownForPdf(line);
   if (!cleaned) {
     return [""];
   }
@@ -128,17 +128,30 @@ function wrapLine(line) {
   return wrapped;
 }
 
-function sanitizeText(value) {
+export function cleanMarkdownForPdf(value) {
   return String(value)
     .replace(/\r/g, "")
-    .replace(/[^\x20-\x7E]/g, "?")
-    .replace(/\(/g, "\\(")
-    .replace(/\)/g, "\\)")
-    .replace(/\\/g, "\\\\")
+    .replace(/\s*[\u2014\u2015]\s*/g, " - ")  // em dash normalized to " - "
+    .replace(/[\u2012\u2013]/g, "-")          // en dash / figure dash
+    .replace(/[\u2022\u2023\u25E6]/g, "-")     // bullets
+    .replace(/[\u201C\u201D\u201E]/g, "\"")    // smart double quotes
+    .replace(/[\u2018\u2019\u201A]/g, "'")     // smart single quotes
+    .replace(/\u2026/g, "...")                 // ellipsis
+    .replace(/\u00A0/g, " ")                   // non-breaking space
+    .replace(/^\s*#{1,6}\s+/gm, "")             // strip markdown headings
+    .replace(/\*\*([^*]+)\*\*/g, "$1")         // strip bold
+    .replace(/\*([^*]+)\*/g, "$1")             // strip italic
+    .replace(/^[-*]\s+/gm, " - ")              // normalize bullet points
+    .replace(/[^\x20-\x7E]/g, " ")             // replace remaining non-ASCII
+    .replace(/[ \t]+/g, " ")                   // collapse spaces
     .trimEnd();
 }
 
-function escapePdfText(value) {
-  return sanitizeText(value);
+export function escapePdfText(value) {
+  return String(value)
+    .replace(/\\/g, "\\\\")
+    .replace(/\(/g, "\\(")
+    .replace(/\)/g, "\\)")
+    .replace(/\r/g, "");
 }
 
