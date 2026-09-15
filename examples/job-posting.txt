@@ -4,7 +4,7 @@ We are looking for someone to build agentic workflows, integrate LLMs into produ
  
 Responsibilities: 
 - Design and build AI agents
-- Work with local and hosted models
+- Work with local and hosted models 
 - Evaluate prompts and improve quality
 - Collaborate with product and design
 
