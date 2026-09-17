@@ -6,7 +6,7 @@ Responsibilities:
 - Design and build AI agents
 - Work with local and hosted models 
 - Evaluate prompts and improve quality 
-- Collaborate with product and design
+- Collaborate with product and design 
  
 Requirements:
 - Experience with Node.js or Python
