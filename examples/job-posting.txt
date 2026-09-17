@@ -3,7 +3,7 @@ Senior AI Product Engineer
 We are looking for someone to build agentic workflows, integrate LLMs into product experiences, and ship reliable automation.
  
 Responsibilities:  
-- Design and build AI agents
+- Design and build AI agents 
 - Work with local and hosted models 
 - Evaluate prompts and improve quality 
 - Collaborate with product and design 
