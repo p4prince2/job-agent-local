@@ -1,195 +1,187 @@
-# Job Agent Local
+# 🤖 Prince AI Team - Personal Multi-Agent AI Assistant
 
-A local-first job application agent you can run with free AI models like Ollama.
+**Prince AI Team** is an autonomous personal AI assistant built for **Prince** ([@p4prince2](https://github.com/p4prince2)). It coordinates a squad of specialized AI agents to handle daily engineering work, GATE preparation, GitHub repository reviews, and high-impact technical content creation.
 
-This scaffold is meant to mirror the useful parts of projects like `career-ops` without depending on a paid model provider:
- 
-- score a job against your CV
-- draft tailored answers and a resume focus
-- generate a per-job PDF resume packet
-- create a browser handoff with a review-first default
-- keep a simple application log 
-- keep auto-submit optional behind an explicit setting
+Built to run **100% locally and privately for free** using **Ollama** and **`llama3.2`** (with zero API costs), backed by a persistent SQLite database, a safety-first human approval guardrail, and an interactive Streamlit web dashboard.
 
-## Quick Start
- 
-1. Install `Node.js` and `Ollama`.
-2. Pull a model with `ollama pull llama3.1:8b`.
-3. Run `npm install`.
-4. Run `npm run init`.
-5. Start with `node src/cli.mjs search "AI Engineer"` or `npm run autopilot -- "AI Engineer"`.
+---
 
-## What you need
+## 🏛️ System Architecture
 
-- Node.js 18 or newer
-- Ollama installed locally
-- a model that can follow structured prompts well
+```
+                                  ┌───────────────────────────────┐
+                                  │    Streamlit Web Dashboard    │
+                                  │ (Chat, Tasks, Drafts, Repos,  │
+                                  │      Logs & Safety Queue)     │
+                                  └───────────────┬───────────────┘
+                                                  │
+                                                  ▼
+                                  ┌───────────────────────────────┐
+                                  │       Supervisor Agent        │
+                                  │  (Intent Planning, Routing &  │
+                                  │      Executive Synthesis)     │
+                                  └───────────────┬───────────────┘
+                                                  │
+                 ┌────────────────────────────────┼───────────────────────────────┐
+                 ▼                                ▼                               ▼
+      ┌─────────────────────┐          ┌─────────────────────┐         ┌─────────────────────┐
+      │    Content Agent    │          │    GitHub Agent     │         │  Daily Work Agent   │
+      │  (LinkedIn/X Posts, │          │  (Structure Audit,  │         │   (GATE Prep & AI   │
+      │   Hooks & Drafts)   │          │  Tests & CI Review) │         │  Tasks & Reminders) │
+      └──────────┬──────────┘          └──────────┬──────────┘         └──────────┬──────────┘
+                 │                                │                               │
+                 └────────────────────────────────┼───────────────────────────────┘
+                                                  │
+                                  ┌───────────────┴───────────────┐
+                                  ▼                               ▼
+                   ┌─────────────────────────────┐  ┌─────────────────────────────┐
+                   │  Computer Automation Agent  │  │   Human Approval Guardrail  │
+                   │ (Windows Files & Execution) │  │  (Confirms sensitive tasks) │
+                   └──────────────┬──────────────┘  └─────────────┬───────────────┘
+                                  │                               │
+                                  └───────────────┬───────────────┘
+                                                  │
+                                                  ▼
+                                  ┌───────────────────────────────┐
+                                  │    SQLite Database & Engine   │
+                                  │    (data/prince_ai.db)        │
+                                  └───────────────────────────────┘
+```
 
-## Install first
+---
 
-If you are starting from a fresh machine, install these in this order:
+## 👥 The 4 Specialized Agents (+ Supervisor)
 
-1. Install Node.js from [nodejs.org/en/download](https://nodejs.org/en/download/).
-   - Node.js includes `npm`, so you do not need a separate JavaScript installer.
-2. Install Ollama from [ollama.com/download/windows](https://ollama.com/download/windows) on Windows.
-   - On Windows, the official PowerShell install command is:
+### 1. 👑 Supervisor Agent (`SupervisorAgent`)
+- Coordinates the team, breaks down natural language goals, selects required agents, passes shared context between agents, and delivers a unified executive summary.
+- Supports single-agent requests and compound workflows (e.g. *"Review my GitHub repo and write a LinkedIn post about it"*).
 
-   ```powershell
-   irm https://ollama.com/install.ps1 | iex
-   ```
+### 2. ✍️ Content Agent (`ContentAgent`)
+- **Niche Focus:** AI, Machine Learning, LLMs, AI Agents, AI Safety, MLOps.
+- Formulates high-impact LinkedIn posts and X (Twitter) threads.
+- Generates 3 distinct hook variations (Contrarian, Behind-the-Scenes, Actionable).
+- Persists drafts locally in SQLite with `#ID`.
+- **Safety Guarantee:** Never publishes directly to social media without human approval.
 
-3. Open a new terminal and verify both tools:
+### 3. 🐙 GitHub Agent (`GitHubAgent`)
+- Audits public repositories for [`p4prince2`](https://github.com/p4prince2) or local projects.
+- Inspects repository structure, dependency hygiene (`requirements.txt`, `pyproject.toml`), README clarity, tests, and CI/CD workflows.
+- Recommends concrete architecture improvements and proposes clean Git branch names (`improvements/code-quality-and-tests`).
+- **Safety Guarantee:** Never deletes repositories, pushes to main, or merges PRs without approval.
 
+### 4. 📋 Daily Work Agent (`DailyWorkAgent`)
+- Manages tasks across **GATE Prep**, **AI/ML Projects**, **GitHub Work**, and **Content Creation**.
+- Decomposes high-level goals into concrete, bite-sized daily tasks with priorities (`high`, `medium`, `low`).
+- Stores verified reminders in SQLite.
+- **Safety Guarantee:** Never claims a reminder was created unless a real database entry was made.
+
+### 5. 💻 Computer Automation Agent (`ComputerAgent`)
+- Inspects project files and directories safely on Windows.
+- Explains planned actions transparently before doing them.
+- Quarantines destructive or system-modifying actions into the **Human Approval Center**.
+
+---
+
+## 🚀 Quickstart Guide
+
+### Prerequisites
+1. **Python 3.10+** (Tested on Python 3.12).
+2. **Ollama** installed with `llama3.2` model:
    ```bash
-   node -v
-   npm -v
-   ollama -v
+   ollama pull llama3.2
    ```
 
-4. Start Ollama and make sure it is reachable at `http://localhost:11434`.
-5. Pull at least one model, for example:
+### 1. Clone & Setup
+```bash
+git clone https://github.com/p4prince2/prince-ai-team.git
+cd prince-ai-team
+```
 
-   ```bash
-   ollama pull llama3.1:8b
-   ```
+### 2. Install Dependencies
+```bash
+pip install -r requirements.txt
+```
 
-Good starting models:
+### 3. Configure (Optional)
+The application works immediately out-of-the-box with local Ollama! If you want to customize settings or add optional API keys, review `.env`:
+```bash
+cp .env.example .env
+```
 
-- `llama3.2:latest` (fast, 2.0GB, works great out of the box)
-- `llama3.1:8b`
-- `qwen2.5-coder:32b`
-- `gemma3:27b`
+### 4. Launch the Dashboard
+Run the one-click launcher:
+```bash
+python run.py
+```
+Or run Streamlit directly:
+```bash
+streamlit run ui/app.py
+```
 
-The agent automatically detects whichever model you have installed in Ollama if `OLLAMA_MODEL` is not explicitly set.
+The web dashboard will automatically open at:
+👉 **`http://localhost:8501`**
 
-## Setup
+---
+
+## 🖥️ Dashboard Features
+
+| Tab | Description |
+|---|---|
+| **💬 Team Workspace** | Chat with the Supervisor, view real-time multi-agent execution steps, and review the final response. |
+| **📋 Daily Work & GATE** | Filterable task board (GATE, AI/ML, GitHub, Content), toggle completion, create new tasks, and view active reminders. |
+| **✍️ Content Lab** | Browse saved LinkedIn and X drafts, compare hook variations, edit draft content, and copy to clipboard. |
+| **🐙 GitHub Inspector** | Audit any repo on `github.com/p4prince2` or local paths, view code structure, test health, and architectural suggestions. |
+| **🛡️ Approval Center** | Review pending sensitive/external actions with single-click **Approve** or **Reject** buttons. |
+| **📜 Activity Logs** | Real-time audit log of every thought, decision, and tool call made by any agent. |
+| **⚙️ Settings** | Verify AI connectivity, switch LLM models, and view system configurations. |
+
+---
+
+## 🧪 Testing
+
+Run the automated test suites:
 
 ```bash
-npm install
-npm run init
+# Test Core Agents & Database Persistence
+python -m unittest tests/test_agents.py
+
+# Test Compound Multi-Agent Workflow (GitHub -> Content -> Supervisor)
+python -m unittest tests/test_workflow.py
 ```
 
-Then edit the generated files:
+---
 
-- `data/profile.json`
-- `data/resume.md`
+## 🗺️ What Remains for Future Phases
 
-## Run
+With the Phase 1 MVP fully operational, here is the technical roadmap for upcoming integrations:
 
-Analyze a job description from a file or URL:
+### 1. 🖥️ Computer Automation (Expanded OS Control)
+- **What remains:** Add `pyautogui` and Windows UI Automation (`pywinauto`) to safely control application windows and automate repetitive desktop steps.
+- **Safeguard:** Every automated macro will require confirmation in the Human Approval Center before executing.
 
-```bash
-node src/cli.mjs analyze ./examples/job-posting.txt
-node src/cli.mjs analyze "https://example.com/job-posting"
-```
+### 2. 🌐 Browser Automation
+- **What remains:** Integrate **Playwright** (`playwright-python`) in headless or headed mode to automate web forms, research scraping, and documentation searches.
+- **Safeguard:** Explicit domain whitelist so agents only browse approved sites.
 
-Create a draft packet and log the application:
+### 3. 🐙 GitHub Write Access
+- **What remains:** Configure a GitHub Personal Access Token (`GITHUB_TOKEN` in `.env`) with `repo` scope to enable:
+  - Creating new branches automatically.
+  - Committing refactored code and unit test additions.
+  - Opening Pull Requests for Prince's review.
 
-```bash
-node src/cli.mjs draft ./examples/job-posting.txt
-```
+### 4. 🔔 System Notifications & Reminders
+- **What remains:** Integrate `win10toast` or `plyer` to trigger native Windows notification toasts when reminders fire or when an agent requests approval.
+- **Background scheduler:** A lightweight background thread (`APScheduler`) to monitor SQLite `reminders` table and trigger toast notifications at exact timestamps.
 
-Open an application page, auto-fill common fields from your latest packet, and pause before submit:
+### 5. 📢 Direct Social Media Publishing
+- **What remains:**
+  - **LinkedIn:** Official LinkedIn REST API v2 using OAuth2 tokens to publish approved drafts with 1-click.
+  - **X (Twitter):** Tweepy / Twitter API v2 integration for automated posting of approved threads.
+  - **Safeguard:** Approval Center button: "Approve & Publish Live".
 
-```bash
-node src/cli.mjs browser-apply "https://example.com/apply"
-```
+---
 
-Run `draft` first so the browser helper has the latest packet to use.
-
-If you pass a placeholder like `https://the-job-application-hcl`, the browser will fail because that is not a real application URL. Use a real job page or let `autopilot` pick one from search results.
-
-PowerShell users can set environment variables like this:
-
-```powershell
-$env:AUTO_SUBMIT="1"
-$env:OLLAMA_MODEL="llama3.1:8b"
-```
-
-Run an autopilot pass that searches, scores, prepares the packet, and then fills the best match:
-
-```bash
-$env:AUTO_SUBMIT="1"
-node src/cli.mjs autopilot "AI Engineer"
-```
-
-Without `AUTO_SUBMIT=1`, the autopilot will still search, prepare the packet, open the application page, fill common fields, and then wait for your review before submitting.
-
-Check your local setup:
-
-```bash
-npm run doctor
-```
-
-`npm run doctor` checks project files, profile/resume loading, Ollama reachability, installed models, and browser automation readiness.
-
-Run the test suite:
-
-```bash
-npm test
-```
-
-
-See the parsed resume structure:
-
-```bash
-node src/cli.mjs profile
-```
-
-Search public job sources and save the results into the tracker:
-
-```bash
-node src/cli.mjs search "AI Engineer"
-```
-
-See the saved tracker entries:
-
-```bash
-npm run track
-```
-
-## Troubleshooting
-
-- If you see `DNS_PROBE_FINISHED_NXDOMAIN`, the URL is a placeholder or typo, not a real application page.
-- If `npm run doctor` cannot reach Ollama, start Ollama first and confirm `http://localhost:11434` is open.
-- If the browser helper pauses before submit, that is the review-first default unless `AUTO_SUBMIT=1` is set.
-- If autopilot finds a job but does not open a browser, that role likely did not expose a usable application URL.
-
-## Environment
-
-You can keep the defaults and only set the model name:
-
-```bash
-$env:OLLAMA_MODEL="qwen2.5-coder:32b"
-```
-
-Optional settings:
-
-- `AI_PROVIDER=ollama`
-- `OLLAMA_BASE_URL=http://localhost:11434`
-- `OLLAMA_MODEL=llama3.1:8b`
-
-## Output
-
-Each run writes a folder under `output/` with:
-
-- `report.md`
-- `draft.md`
-- `resume-tailored.md`
-- `resume.pdf`
-- `browser-handoff.md`
-- `analysis.json`
-- `browser-preview.png` when browser assist runs
-- `browser-run-summary.txt` when browser assist runs
-
-Applications are appended to `data/applications.json`.
-Search discoveries are also recorded there with match scores and statuses.
-
-## Next step
-
-This scaffold is intentionally conservative. The natural next upgrade is browser-assisted form filling with a review gate, so the agent drafts and prepares actions but still waits for your approval before any submission.
-
-The `browser-apply` command does the assisted part: it fills common fields, uploads the saved resume when possible, takes a screenshot, and stops before clicking submit unless `AUTO_SUBMIT=1` is set.
-
-The `search` command is the first autonomous slice: it scans public sources, scores the matches, and stores a queue of jobs to review or skip.
-
+## 🛡️ Privacy & Security
+- **No data leaks:** All data, logs, drafts, and tasks remain strictly in `data/prince_ai.db` on your local disk.
+- **Local AI:** All inferences run through your local Ollama instance on `localhost:11434`.
+- **Zero API keys required:** Runs completely free of charge.

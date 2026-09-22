@@ -1,6 +1,48 @@
-node_modules/
-output/
-data/applications.json
-.env
-.DS_Store
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
 
+# Virtual Environment
+.venv/
+venv/
+
+# Environment variables & secrets
+.env
+.streamlit/secrets.toml
+
+# Local database & data
+data/*.db
+data/*.sqlite3
+data/*.log
+
+# IDE & Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+Thumbs.db
+Desktop.ini
+.DS_Store
