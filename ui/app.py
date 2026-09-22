@@ -287,7 +287,7 @@ with tabs[1]:
             col_check, col_info, col_del = st.columns([1, 10, 1])
             with col_check:
                 is_done = t["status"] == "completed"
-                checked = st.checkbox("", value=is_done, key=f"task_done_{t['id']}")
+                checked = st.checkbox(f"Complete task {t['id']}", value=is_done, key=f"task_done_{t['id']}", label_visibility="collapsed")
                 if checked != is_done:
                     update_task_status(t["id"], "completed" if checked else "pending")
                     st.rerun()
