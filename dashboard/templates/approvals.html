@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block title %}Approvals Queue | Prince AI Team{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h2>🛡️ Human Approval &amp; Safety Queue</h2>
+  <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem;">
+    Strict safety gate (§11): No agent is permitted to publish content, send messages, delete files, purchase, or modify repositories without your explicit confirmation.
+  </p>
+
+  <h3 style="margin-bottom: 1rem;">Pending Actions</h3>
+  {% if pending_approvals %}
+  <div style="display: flex; flex-direction: column; gap: 1rem; margin-bottom: 2rem;">
+    {% for app in pending_approvals %}
+    <div style="border: 2px solid #F87171; background: #FEF2F2; padding: 1.25rem; border-radius: 8px;">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+        <div>
+          <span class="badge badge-automation" style="font-size: 0.85rem;">{{ app.action_type }}</span>
+          <span style="font-size: 0.85rem; color: #991B1B; margin-left: 0.5rem;">Requested by <strong>{{ app.requested_by_agent }}</strong></span>
+          <h4 style="margin-top: 0.5rem; color: #111827;">{{ app.description }}</h4>
+        </div>
+        <span class="badge badge-daily" style="text-transform: uppercase;">Awaiting Prince's Approval</span>
+      </div>
+
+      <div style="margin-top: 0.75rem;">
+        <span style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700;">Action Payload:</span>
+        <pre style="margin-top: 0.25rem; max-height: 120px;">{{ app.payload_json }}</pre>
+      </div>
+
+      <div style="margin-top: 1rem; display: flex; gap: 0.75rem;">
+        <form action="/approvals/resolve/{{ app.id }}" method="POST">
+          <input type="hidden" name="decision" value="approved">
+          <button type="submit" class="btn btn-primary" style="background-color: #059669;">
+            ✅ Approve Action
+          </button>
+        </form>
+        <form action="/approvals/resolve/{{ app.id }}" method="POST">
+          <input type="hidden" name="decision" value="rejected">
+          <button type="submit" class="btn btn-danger">
+            ❌ Reject Action
+          </button>
+        </form>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div style="background: var(--success-bg); color: var(--success-text); padding: 1rem 1.25rem; border-radius: 6px; margin-bottom: 2rem;">
+    ✅ <strong>All Clear!</strong> There are currently no pending approval requests in the queue.
+  </div>
+  {% endif %}
+
+  <h3>Decision History</h3>
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 60px;">ID</th>
+        <th>Action Type</th>
+        <th>Requested By</th>
+        <th>Description</th>
+        <th>Decision</th>
+        <th>Date</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for a in all_approvals %}
+      <tr>
+        <td>#{{ a.id }}</td>
+        <td><code>{{ a.action_type }}</code></td>
+        <td>{{ a.requested_by_agent }}</td>
+        <td>{{ a.description }}</td>
+        <td>
+          <span class="badge {% if a.status == 'approved' %}badge-content{% elif a.status == 'rejected' %}badge-automation{% else %}badge-daily{% endif %}">
+            {{ a.status|upper }}
+          </span>
+        </td>
+        <td style="color: var(--text-muted); font-size: 0.85rem;">{{ a.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">No historical approvals recorded.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

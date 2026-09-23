@@ -4,45 +4,28 @@ __pycache__/
 *$py.class
 *.so
 .Python
-env/
-venv/
-ENV/
 build/
-develop-eggs/
 dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
 *.egg-info/
-.installed.cfg
-*.egg
 
-# Virtual Environment
+# Environments
 .venv/
 venv/
+env/
 
 # Environment variables & secrets
 .env
-.streamlit/secrets.toml
+*.env.local
 
-# Local database & data
+# Persistent Database & Logs (SPEC.md §12)
 data/*.db
 data/*.sqlite3
-data/*.log
+data/logs/
+*.log
 
-# IDE & Editor
+# Editor & OS files
 .vscode/
 .idea/
 *.swp
-*.swo
-
-# OS files
 Thumbs.db
-Desktop.ini
 .DS_Store

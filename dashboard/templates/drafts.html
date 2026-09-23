@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}Content Drafts | Prince AI Team{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+    <div>
+      <h2>✍️ Technical Content Lab</h2>
+      <p style="color: var(--text-muted); font-size: 0.9rem;">
+        Drafts for LinkedIn, Medium, and X. Saved locally in SQLite; never auto-published without explicit approval.
+      </p>
+    </div>
+    <div style="display: flex; gap: 0.5rem;">
+      <a href="/drafts?platform=all" class="btn btn-secondary" style="font-size: 0.85rem;">All</a>
+      <a href="/drafts?platform=linkedin" class="btn btn-secondary" style="font-size: 0.85rem;">LinkedIn</a>
+      <a href="/drafts?platform=medium" class="btn btn-secondary" style="font-size: 0.85rem;">Medium</a>
+      <a href="/drafts?platform=x" class="btn btn-secondary" style="font-size: 0.85rem;">X (Twitter)</a>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+    {% for d in drafts %}
+    <div style="border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; background: var(--surface);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+        <div>
+          <span class="badge {% if d.platform == 'linkedin' %}badge-content{% elif d.platform == 'medium' %}badge-daily{% else %}badge-github{% endif %}">
+            {{ d.platform|upper }}
+          </span>
+          <span style="font-size: 0.8rem; color: var(--text-muted); margin-left: 0.5rem;">
+            Type: <strong>{{ d.type }}</strong> &bull; Draft #{{ d.id }} &bull; {{ d.created_at.strftime('%Y-%m-%d %H:%M') }}
+          </span>
+        </div>
+        <span class="badge badge-supervisor">{{ d.status }}</span>
+      </div>
+
+      <pre style="white-space: pre-wrap; font-family: inherit; font-size: 0.9rem; max-height: 250px; overflow-y: auto;">{{ d.content }}</pre>
+
+      <div style="margin-top: 0.75rem; display: flex; justify-content: flex-end; gap: 0.5rem;">
+        <button class="btn btn-secondary" style="font-size: 0.8rem;" onclick="navigator.clipboard.writeText(`{{ d.content|escape }}`); alert('Copied to clipboard!');">
+          📋 Copy to Clipboard
+        </button>
+      </div>
+    </div>
+    {% else %}
+    <div style="text-align: center; color: var(--text-muted); padding: 3rem;">
+      No drafts found. Ask ContentAgent to write a post or reply!
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

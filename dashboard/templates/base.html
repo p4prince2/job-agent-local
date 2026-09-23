@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Prince AI Team{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <!-- HTMX 1.9.12 -->
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <h1>🤖 Prince AI Team</h1>
+      <span class="badge badge-supervisor">Local Ollama</span>
+    </div>
+    <nav>
+      <ul class="nav-links">
+        <li><a href="/" class="{% if active_tab == 'chat' %}active{% endif %}">💬 Console</a></li>
+        <li><a href="/tasks" class="{% if active_tab == 'tasks' %}active{% endif %}">📋 Tasks</a></li>
+        <li><a href="/drafts" class="{% if active_tab == 'drafts' %}active{% endif %}">✍️ Drafts</a></li>
+        <li><a href="/work" class="{% if active_tab == 'work' %}active{% endif %}">📅 Daily Work</a></li>
+        <li><a href="/github" class="{% if active_tab == 'github' %}active{% endif %}">🐙 GitHub</a></li>
+        <li>
+          <a href="/approvals" class="{% if active_tab == 'approvals' %}active{% endif %}">
+            🛡️ Approvals
+            {% if pending_approvals_count and pending_approvals_count > 0 %}
+            <span class="badge-counter">{{ pending_approvals_count }}</span>
+            {% endif %}
+          </a>
+        </li>
+        <li><a href="/logs" class="{% if active_tab == 'logs' %}active{% endif %}">📜 Logs</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer style="text-align: center; padding: 1.5rem; color: var(--text-muted); font-size: 0.85rem; border-top: 1px solid var(--border);">
+    Prince AI Team &bull; Local Multi-Agent Architecture (SPEC.md v2) &bull; Free & Open Source
+  </footer>
+</body>
+</html>

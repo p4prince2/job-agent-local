@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}Tasks History | Prince AI Team{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h2>📋 Task History</h2>
+  <p style="color: var(--text-muted); font-size: 0.9rem;">Audit of all requests dispatched to the Prince AI Team.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 60px;">ID</th>
+        <th>User Request</th>
+        <th>Routed Pipeline</th>
+        <th>Status</th>
+        <th>Created</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for t in tasks %}
+      <tr>
+        <td>#{{ t.id }}</td>
+        <td><strong>{{ t.raw_input }}</strong></td>
+        <td>
+          {% for ag in t.get_routed_agents() %}
+            <span class="badge {% if ag == 'GitHubAgent' %}badge-github{% elif ag == 'ContentAgent' %}badge-content{% elif ag == 'DailyWorkAgent' %}badge-daily{% else %}badge-automation{% endif %}">
+              {{ ag }}
+            </span>
+          {% endfor %}
+        </td>
+        <td>
+          <span class="badge {% if t.status == 'completed' %}badge-content{% elif t.status == 'failed' %}badge-automation{% else %}badge-daily{% endif %}">
+            {{ t.status }}
+          </span>
+        </td>
+        <td style="color: var(--text-muted); font-size: 0.85rem;">{{ t.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 2rem;">No tasks recorded yet.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block title %}Activity Logs | Prince AI Team{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+    <div>
+      <h2>📜 Agent Activity Logs</h2>
+      <p style="color: var(--text-muted); font-size: 0.9rem;">
+        Mirrored audit trail from rotating JSON log file directly into SQLite (§14).
+      </p>
+    </div>
+    <div style="display: flex; gap: 0.5rem;">
+      <a href="/logs?agent=all" class="btn btn-secondary" style="font-size: 0.8rem;">All</a>
+      <a href="/logs?agent=SupervisorAgent" class="btn btn-secondary" style="font-size: 0.8rem;">Supervisor</a>
+      <a href="/logs?agent=ContentAgent" class="btn btn-secondary" style="font-size: 0.8rem;">Content</a>
+      <a href="/logs?agent=GitHubAgent" class="btn btn-secondary" style="font-size: 0.8rem;">GitHub</a>
+      <a href="/logs?agent=DailyWorkAgent" class="btn btn-secondary" style="font-size: 0.8rem;">Daily Work</a>
+      <a href="/logs?agent=ApprovalManager" class="btn btn-secondary" style="font-size: 0.8rem;">Approvals</a>
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 140px;">Timestamp</th>
+        <th style="width: 90px;">Level</th>
+        <th style="width: 150px;">Agent</th>
+        <th>Message</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for l in logs %}
+      <tr>
+        <td style="color: var(--text-muted); font-size: 0.8rem;">{{ l.created_at.strftime('%H:%M:%S') }}</td>
+        <td>
+          <span class="badge {% if l.level == 'ERROR' %}badge-automation{% elif l.level == 'WARNING' %}badge-daily{% else %}badge-github{% endif %}" style="font-size: 0.75rem;">
+            {{ l.level }}
+          </span>
+        </td>
+        <td><strong>{{ l.agent_name }}</strong></td>
+        <td style="font-size: 0.9rem;">{{ l.message }}</td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="4" style="text-align: center; color: var(--text-muted); padding: 2rem;">No logs recorded.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

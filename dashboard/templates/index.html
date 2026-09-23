@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block title %}Console | Prince AI Team{% endblock %}
+
+{% block content %}
+<div class="grid-2">
+  <div>
+    <div class="card">
+      <h2 style="margin-bottom: 0.5rem;">👑 Supervisor Command Center</h2>
+      <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem;">
+        Type any instruction for Prince's team. The Supervisor routes to Content, GitHub, Daily Work, or reports if an agent is deferred to Phase 2.
+      </p>
+
+      <form action="/submit-task" method="POST">
+        <label for="prompt" style="font-weight: 600; font-size: 0.9rem;">What would you like the team to do?</label>
+        <textarea id="prompt" name="prompt" rows="4" placeholder="e.g. Review my GitHub project prince-ai-team and write a LinkedIn post about the improvements." required></textarea>
+        
+        <div style="margin-top: 1rem; display: flex; justify-content: space-between; align-items: center;">
+          <div style="font-size: 0.8rem; color: var(--text-muted);">
+            Running on <strong>Ollama (llama3.2)</strong> &bull; Zero API Cost
+          </div>
+          <button type="submit" class="btn btn-primary">🚀 Dispatch Task</button>
+        </div>
+      </form>
+
+      <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+        <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">QUICK TEMPLATES:</span>
+        <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.5rem;">
+          <button class="btn btn-secondary" style="font-size: 0.8rem; justify-content: flex-start; text-align: left;"
+            onclick="document.getElementById('prompt').value = 'Review my GitHub repo prince-ai-team and create a LinkedIn post about the architecture.';">
+            🐙 Review GitHub Repo &amp; Draft LinkedIn Post
+          </button>
+          <button class="btn btn-secondary" style="font-size: 0.8rem; justify-content: flex-start; text-align: left;"
+            onclick="document.getElementById('prompt').value = 'Help me plan my day: 3 hours of GATE prep and 2 hours of AI agent fine-tuning.';">
+            📅 Plan Today: GATE Prep + AI/ML Work
+          </button>
+          <button class="btn btn-secondary" style="font-size: 0.8rem; justify-content: flex-start; text-align: left;"
+            onclick="document.getElementById('prompt').value = 'Draft a high-signal reply to a post claiming autonomous AI agents are ready for full production automation.';">
+            ✍️ Draft High-Signal LinkedIn Reply
+          </button>
+          <button class="btn btn-secondary" style="font-size: 0.8rem; justify-content: flex-start; text-align: left;"
+            onclick="document.getElementById('prompt').value = 'Automate my Windows browser to click on a website and delete temporary files.';">
+            💻 Test Computer Automation Stub (Phase 2)
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    {% if latest_task %}
+    <div class="card" id="task-card">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem;">
+        <div>
+          <span style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700;">Task #{{ latest_task.id }}</span>
+          <h3 style="margin-top: 0.2rem;">{{ latest_task.raw_input }}</h3>
+        </div>
+        <span class="badge {% if latest_task.status == 'completed' %}badge-content{% elif latest_task.status == 'running' %}badge-daily{% else %}badge-supervisor{% endif %}">
+          {{ latest_task.status|upper }}
+        </span>
+      </div>
+
+      <div style="margin-bottom: 1rem;">
+        <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600;">ROUTED PIPELINE:</span>
+        <div style="display: flex; gap: 0.5rem; margin-top: 0.25rem;">
+          {% for ag in latest_task.get_routed_agents() %}
+            <span class="badge {% if ag == 'GitHubAgent' %}badge-github{% elif ag == 'ContentAgent' %}badge-content{% elif ag == 'DailyWorkAgent' %}badge-daily{% else %}badge-automation{% endif %}">
+              {{ ag }}
+            </span>
+          {% endfor %}
+        </div>
+      </div>
+
+      {% if latest_task.agent_runs %}
+      <h4 style="font-size: 0.9rem; margin-bottom: 0.5rem; color: var(--text-muted);">AGENT EXECUTION TRACE:</h4>
+      <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+        {% for run in latest_task.agent_runs %}
+        <div style="background: #F8FAFC; border: 1px solid var(--border); padding: 0.75rem; border-radius: 6px;">
+          <div style="display: flex; justify-content: space-between;">
+            <strong>{{ run.agent_name }}</strong>
+            <span class="badge {% if run.status == 'completed' %}badge-content{% elif run.status == 'failed' %}badge-automation{% else %}badge-daily{% endif %}">{{ run.status }}</span>
+          </div>
+          {% if run.output %}
+          <pre style="margin-top: 0.5rem; max-height: 160px;">{{ run.output }}</pre>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      {% if executive_summary %}
+      <div style="margin-top: 1.25rem; padding: 1rem; background: #EEF2FF; border-left: 4px solid var(--primary); border-radius: 4px;">
+        <h4 style="color: var(--primary); margin-bottom: 0.25rem;">👑 Supervisor Executive Summary:</h4>
+        <p style="white-space: pre-wrap; font-size: 0.95rem;">{{ executive_summary }}</p>
+      </div>
+      {% endif %}
+    </div>
+    {% else %}
+    <div class="card" style="text-align: center; padding: 3rem 1.5rem; color: var(--text-muted);">
+      <div style="font-size: 3rem; margin-bottom: 0.5rem;">🤖</div>
+      <h3>Prince AI Team is Ready</h3>
+      <p style="margin-top: 0.5rem;">Submit an instruction on the left or select a template to see your multi-agent team in action.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

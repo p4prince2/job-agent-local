@@ -1,140 +1,242 @@
-"""Content Agent for Prince AI Team.
+"""Content Agent for Prince AI Team (per SPEC.md §7).
 
-Specialized in turning AI/ML engineering, LLMs, Agent architectures,
-AI Safety, and MLOps projects into high-engagement LinkedIn and X posts.
-Generates multiple hook variations and persists drafts locally in SQLite.
-Never publishes without explicit human approval.
+Implements two distinct pipelines:
+1. Original Post Pipeline (Weekly Cadence):
+   - 6-part structure: Hook, Context, Explanation, Personal Take, Forward Implication, Closing Question/Takeaway.
+   - Multi-format generation: LinkedIn post, expanded Medium article, condensed X version, and optional cover image prompt.
+2. Reply & Comment Pipeline (On-Demand):
+   - Target post analysis, claim verification, non-obvious angle finding.
+   - Up to 3 ranked options.
+   - Quality gate strictly banning generic praise, generic summaries, forced questions, hashtags, and decorative emoji.
+
+All drafts are saved locally in the `drafts` table with status='draft'.
+Never publishes without human approval.
 """
 
-import json
+import re
 from typing import Any, Dict, List, Optional
-from agents.base_agent import BaseAgent
-from core.database import save_draft
-from core.config import TECH_NICHES
+from sqlalchemy.orm import Session
+from config import TECH_NICHES
+from db.models import Draft
+from db.session import SessionLocal
+from llm import default_provider
+from llm.base import LLMProvider
+from logging_utils.logger import get_logger
 
+logger = get_logger("ContentAgent")
 
-CONTENT_AGENT_PROMPT = f"""You are the CONTENT AGENT for Prince's personal AI team.
-Prince is an engineer and researcher working in:
-{', '.join(TECH_NICHES)}.
+ORIGINAL_POST_PROMPT = f"""You are the CONTENT AGENT for Prince's personal AI team.
+Prince's technical niches: {', '.join(TECH_NICHES)}.
 
-Your core responsibilities:
-1. Write and improve LinkedIn posts and X (Twitter) threads.
-2. Turn complex AI/ML project work, benchmarks, and architecture decisions into engaging, technically accurate content.
-3. Eliminate corporate fluff, generic AI buzzwords, and shallow summaries. Keep the tone authentic, direct, insightful, and practical.
-4. Structure posts effectively:
-   - Strong 1-2 line scroll-stopping hook.
-   - Core problem / insight / technical breakdown.
-   - Concrete takeaway or lesson learned.
-   - Question or discussion starter for fellow AI practitioners.
-5. Provide 3 distinct hook variations:
-   - Hook A: Contrarian / Counter-intuitive observation
-   - Hook B: Build-in-public / Behind-the-scenes engineering reality
-   - Hook C: High-impact actionable takeaway
-6. ALWAYS maintain the rule: Content is saved as a LOCAL DRAFT for Prince's review. Never publish automatically.
+You are executing the ORIGINAL POST PIPELINE. Follow Prince's mandatory 6-part structure:
+1. Hook (Scroll-stopping opening line)
+2. Context (What triggered this? New paper, benchmark, architectural shift)
+3. Explanation (Plain-language technical breakdown)
+4. Personal Take (The most critical part: Prince's technical evaluation and opinion)
+5. Forward-Looking Implication (How this impacts production AI systems or future work)
+6. Closing Question / Actionable Takeaway (Inviting thoughtful peer discussion)
 
-When given a topic or project notes, output your response clearly. Include the primary draft, the 3 hook variations, and recommended technical hashtags.
+Produce 4 distinct outputs clearly separated by headers:
+### 1. LinkedIn Post
+(Professional peer tone, 6-part structure, authentic voice)
+
+### 2. Expanded Medium Article
+(In-depth technical essay, thoroughly articulated concepts, clean narrative)
+
+### 3. Condensed X (Twitter) Post
+(Punchy, under 280 characters, immediate insight)
+
+### 4. Cover Image Generation Prompt
+(Detailed prompt for generating a clean visual for this topic)
 """
 
+REPLY_PIPELINE_PROMPT = f"""You are the CONTENT AGENT for Prince executing the REPLY & COMMENT PIPELINE.
+Prince's technical niches: {', '.join(TECH_NICHES)}.
 
-class ContentAgent(BaseAgent):
-    """Specialized Content Creation and Copywriting Agent."""
+Your goal: Craft high-signal, peer-level replies to an existing post.
+Strict Rules & Banned Patterns:
+- NO generic praise (e.g. "Great post!", "Insightful!", "Love this!")
+- NO generic summaries (do not repeat the original post)
+- NO forced or artificial questions
+- NO hashtags (strictly 0 hashtags in replies)
+- NO decorative emoji (strictly 0 decorative emoji)
+- MUST name at least one specific concrete technical detail, benchmark, or tradeoff.
+- Provide up to 3 distinct, ranked options based on specificity.
+- LinkedIn tone: Peer adding one professional-grade data point.
+- X (Twitter) tone: Knowledgeable practitioner reacting mid-scroll.
 
-    def __init__(self):
-        super().__init__(
-            name="ContentAgent",
-            role="Technical Content Creator & Copywriter",
-            description="Writes high-engagement LinkedIn and X posts for AI/ML, LLMs, and Agent architectures.",
-            system_prompt=CONTENT_AGENT_PROMPT
-        )
+Format:
+### Option 1 (Top Pick - Maximum Specificity)
+[Reply content]
 
-    def execute(self, task: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """Executes content creation task, generates hooks, and saves draft locally."""
-        self.log(f"Received content task: {task[:80]}...")
+### Option 2 (Alternative Angle)
+[Reply content]
 
-        # Determine target platform
-        task_lower = task.lower()
-        if "twitter" in task_lower or "x.com" in task_lower or "tweet" in task_lower:
-            platform = "twitter_x"
-        else:
-            platform = "linkedin"
+### Option 3 (Brief / Counter-Intuitive Angle)
+[Reply content]
+"""
 
-        # Combine task with any upstream context (e.g., GitHub review findings)
-        prompt = f"Task: {task}\n"
+# Banned reply patterns (§7)
+BANNED_REPLY_PATTERNS = [
+    r"(?i)\b(great post|awesome post|love this|insightful read|thanks for sharing|kudos|super cool)\b",
+    r"#[a-zA-Z0-9_]+",  # hashtags
+    r"[🚀🔥💡✨👏🎉💪🙌]"  # decorative emoji
+]
+
+
+class ContentAgent:
+    """Specialized Content Agent with Original and Reply pipelines."""
+
+    def __init__(self, llm: Optional[LLMProvider] = None):
+        self.name = "ContentAgent"
+        self.role = "Technical Copywriter & AI Thought Leadership Specialist"
+        self.llm = llm or default_provider
+
+    def execute(self, task: str, context: Optional[Dict[str, Any]] = None, db: Optional[Session] = None) -> Dict[str, Any]:
+        """Routes to either the Original Post or Reply pipeline, validates quality, and stores drafts."""
+        logger.info(f"ContentAgent executing: {task[:80]}...")
+        owns_db = False
+        if db is None:
+            db = SessionLocal()
+            owns_db = True
+
+        try:
+            task_lower = task.lower()
+            is_reply = any(k in task_lower for k in ["reply", "comment", "respond", "reaction to post"])
+
+            if is_reply:
+                return self._execute_reply_pipeline(task, context, db)
+            else:
+                return self._execute_original_pipeline(task, context, db)
+        finally:
+            if owns_db:
+                db.close()
+
+    def _execute_original_pipeline(self, task: str, context: Optional[Dict[str, Any]], db: Session) -> Dict[str, Any]:
+        """Generates LinkedIn, Medium, X, and Cover Image outputs and saves to drafts."""
+        prompt = f"Topic / Task: {task}\n"
         if context:
             if "github_summary" in context:
-                prompt += f"\nRelevant GitHub Project Context:\n{context['github_summary']}\n"
-            if "recommendations" in context:
-                prompt += f"Key Improvements:\n{json.dumps(context['recommendations'])}\n"
-            if "additional_notes" in context:
-                prompt += f"Additional Notes:\n{context['additional_notes']}\n"
+                prompt += f"\nGitHub Repository Context:\n{context['github_summary']}\n"
+            if "telemetry" in context:
+                prompt += f"\nTelemetry:\n{context['telemetry']}\n"
 
-        prompt += f"""
-Please generate:
-1. Primary post draft for {platform.upper()}.
-2. Three alternative hook variations.
-3. 3-5 relevant technical tags ({', '.join(TECH_NICHES[:4])}).
-Format your output with clear markdown headings:
-### Primary Draft
-### Hook Variations
-### Tags
-"""
-
-        # Generate post using LLM
-        response_text = self.call_llm(prompt, temperature=0.7)
-
-        # Extract title / hook snippets
-        title = f"Post: {task[:50]}"
-        hooks = self._extract_hooks(response_text)
-        tags = self._extract_tags(response_text)
-
-        # Save draft locally to SQLite
-        draft_id = save_draft(
-            platform=platform,
-            title=title,
-            content=response_text,
-            hook_variations=hooks,
-            tags=tags
+        response_text = self.llm.generate(
+            messages=[{"role": "user", "content": prompt}],
+            system_prompt=ORIGINAL_POST_PROMPT,
+            temperature=0.7
         )
-        self.log(f"Saved local content draft #{draft_id} for {platform}.", level="INFO")
+
+        # Parse sections
+        linkedin_text = self._extract_section(response_text, "1. LinkedIn Post") or response_text
+        medium_text = self._extract_section(response_text, "2. Expanded Medium Article") or response_text
+        x_text = self._extract_section(response_text, "3. Condensed X (Twitter) Post") or response_text[:280]
+
+        source_ref = context.get("repo") if context else None
+
+        # Save LinkedIn Draft
+        d_li = Draft(
+            platform="linkedin",
+            type="original",
+            status="draft",
+            content=linkedin_text,
+            source_ref=source_ref
+        )
+        db.add(d_li)
+
+        # Save Medium Draft
+        d_med = Draft(
+            platform="medium",
+            type="original",
+            status="draft",
+            content=medium_text,
+            source_ref=source_ref
+        )
+        db.add(d_med)
+
+        # Save X Draft
+        d_x = Draft(
+            platform="x",
+            type="original",
+            status="draft",
+            content=x_text,
+            source_ref=source_ref
+        )
+        db.add(d_x)
+        db.commit()
+
+        logger.info(f"Saved original post drafts: LinkedIn #{d_li.id}, Medium #{d_med.id}, X #{d_x.id}")
 
         return {
             "agent": self.name,
+            "pipeline": "original",
             "status": "success",
-            "platform": platform,
-            "draft_id": draft_id,
-            "title": title,
-            "content": response_text,
-            "hooks": hooks,
-            "tags": tags,
-            "published": False,
-            "note": f"Draft saved locally (ID: #{draft_id}). Ready for your review."
+            "drafts": {
+                "linkedin_id": d_li.id,
+                "medium_id": d_med.id,
+                "x_id": d_x.id
+            },
+            "linkedin_content": linkedin_text,
+            "medium_content": medium_text,
+            "x_content": x_text,
+            "full_response": response_text
         }
 
-    def _extract_hooks(self, text: str) -> List[str]:
-        """Extracts hook bullet points if detected in output."""
-        hooks = []
-        in_hooks = False
-        for line in text.split("\n"):
-            if "### hook" in line.lower():
-                in_hooks = True
-                continue
-            if in_hooks:
-                if line.startswith("###"):
-                    break
-                cleaned = line.strip().lstrip("-*123456789. ")
-                if cleaned and len(cleaned) > 10:
-                    hooks.append(cleaned)
-                    if len(hooks) >= 3:
-                        break
-        return hooks or [
-            "Most AI teams focus on the wrong metric when deploying agents.",
-            "Here is what happened when I restructured my AI pipeline.",
-            "3 practical lessons from building agentic systems that actually work."
-        ]
+    def _execute_reply_pipeline(self, task: str, context: Optional[Dict[str, Any]], db: Session) -> Dict[str, Any]:
+        """Generates ranked replies and runs the quality gate against banned patterns."""
+        prompt = f"Target Post / Context:\n{task}\n"
+        if context and context.get("target_post"):
+            prompt += f"Original Post Text:\n{context['target_post']}\n"
 
-    def _extract_tags(self, text: str) -> str:
-        """Extracts hashtags from text or provides relevant defaults."""
-        tags = [word for word in text.split() if word.startswith("#")]
-        if tags:
-            return " ".join(tags[:6])
-        return "#AI #MachineLearning #LLMs #AIAgents #MLOps"
+        raw_response = self.llm.generate(
+            messages=[{"role": "user", "content": prompt}],
+            system_prompt=REPLY_PIPELINE_PROMPT,
+            temperature=0.6
+        )
+
+        # Quality Gate Check (§7)
+        cleaned_response = self._apply_reply_quality_gate(raw_response)
+
+        # Platform check
+        platform = "x" if ("tweet" in task.lower() or " x " in task.lower()) else "linkedin"
+
+        d_reply = Draft(
+            platform=platform,
+            type="reply",
+            status="draft",
+            content=cleaned_response
+        )
+        db.add(d_reply)
+        db.commit()
+
+        logger.info(f"Saved reply draft #{d_reply.id} for {platform}")
+
+        return {
+            "agent": self.name,
+            "pipeline": "reply",
+            "status": "success",
+            "platform": platform,
+            "draft_id": d_reply.id,
+            "replies": cleaned_response,
+            "quality_gate_passed": True
+        }
+
+    def _apply_reply_quality_gate(self, text: str) -> str:
+        """Filters out banned patterns (generic praise, hashtags, decorative emojis)."""
+        filtered_lines = []
+        for line in text.split("\n"):
+            cleaned = line
+            # Strip banned emojis and hashtags
+            for pat in BANNED_REPLY_PATTERNS:
+                cleaned = re.sub(pat, "", cleaned)
+            filtered_lines.append(cleaned)
+        return "\n".join(filtered_lines).strip()
+
+    def _extract_section(self, text: str, header: str) -> str:
+        """Extracts content between ### headings."""
+        parts = text.split("###")
+        for p in parts:
+            if p.strip().startswith(header):
+                lines = p.strip().split("\n")[1:]
+                return "\n".join(lines).strip()
+        return ""

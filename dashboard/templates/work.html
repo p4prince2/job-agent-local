@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}Daily Work & GATE | Prince AI Team{% endblock %}
+
+{% block content %}
+<div class="grid-2">
+  <div>
+    <div class="card">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h2>📅 Work Items</h2>
+        <span style="font-size: 0.85rem; color: var(--text-muted);">Grouped by Project</span>
+      </div>
+
+      <div style="margin-bottom: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+        <a href="/work?tag=all" class="btn btn-secondary" style="font-size: 0.8rem;">All</a>
+        <a href="/work?tag=gate_prep" class="btn btn-secondary" style="font-size: 0.8rem;">GATE Prep</a>
+        <a href="/work?tag=ai_ml" class="btn btn-secondary" style="font-size: 0.8rem;">AI/ML Projects</a>
+        <a href="/work?tag=github" class="btn btn-secondary" style="font-size: 0.8rem;">GitHub Work</a>
+        <a href="/work?tag=content" class="btn btn-secondary" style="font-size: 0.8rem;">Content Creation</a>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+        {% for item in work_items %}
+        <div style="border: 1px solid var(--border); padding: 0.75rem; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; background: {% if item.status == 'done' %}#F8FAFC{% else %}var(--surface){% endif %};">
+          <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <form action="/work/toggle/{{ item.id }}" method="POST" style="margin: 0;">
+              <input type="checkbox" onChange="this.form.submit()" {% if item.status == 'done' %}checked{% endif %}>
+            </form>
+            <div>
+              <div style="{% if item.status == 'done' %}text-decoration: line-through; color: var(--text-muted);{% else %}font-weight: 600;{% endif %}">
+                {{ item.title }}
+              </div>
+              <span class="badge {% if item.project_tag == 'gate_prep' %}badge-daily{% elif item.project_tag == 'ai_ml' %}badge-content{% elif item.project_tag == 'github' %}badge-github{% else %}badge-supervisor{% endif %}" style="font-size: 0.7rem; padding: 0.1rem 0.4rem;">
+                {{ item.project_tag }}
+              </span>
+              <span style="font-size: 0.75rem; color: var(--text-muted); margin-left: 0.4rem;">Priority: {{ item.priority }}</span>
+            </div>
+          </div>
+          <span class="badge {% if item.status == 'done' %}badge-content{% else %}badge-daily{% endif %}" style="font-size: 0.75rem;">
+            {{ item.status }}
+          </span>
+        </div>
+        {% else %}
+        <div style="text-align: center; color: var(--text-muted); padding: 2rem;">No work items recorded.</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="card">
+      <h2>⏰ In-App Reminders</h2>
+      <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem;">
+        Notice: Per SPEC.md §9, Phase 1 MVP reminders are in-app only and surface when you open this dashboard. OS toast alerts are Phase 2.
+      </p>
+
+      {% for rem in reminders %}
+      <div style="background: #FFFBEB; border: 1px solid #FDE68A; padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <strong>🔔 Scheduled Check-in</strong>
+          <div style="font-size: 0.85rem; color: #92400E;">Remind at: <code>{{ rem.remind_at }}</code></div>
+        </div>
+        <span class="badge badge-daily">Active</span>
+      </div>
+      {% else %}
+      <div style="text-align: center; color: var(--text-muted); padding: 2rem;">No active reminders scheduled.</div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}GitHub Reviews | Prince AI Team{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h2>🐙 GitHub Repository Audits</h2>
+  <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem;">
+    Read-only inspection reports for Prince (https://github.com/p4prince2). Audits project structure, test suites, dependencies, and READMEs.
+  </p>
+
+  <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+    {% for r in reviews %}
+    <div style="border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; background: var(--surface);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+        <div>
+          <h3 style="display: inline;">📁 {{ r.repo }}</h3>
+          <span style="font-size: 0.8rem; color: var(--text-muted); margin-left: 0.5rem;">Review #{{ r.id }} &bull; {{ r.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+        </div>
+        <span class="badge badge-github">Read-Only Audit</span>
+      </div>
+
+      <div style="margin-bottom: 1rem;">
+        <h4 style="font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase;">Telemetry:</h4>
+        <pre style="max-height: 140px;">{{ r.summary_json }}</pre>
+      </div>
+
+      <div>
+        <h4 style="font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase;">Architectural Review:</h4>
+        <div style="white-space: pre-wrap; font-size: 0.95rem; margin-top: 0.5rem; line-height: 1.6;">{{ r.human_summary }}</div>
+      </div>
+    </div>
+    {% else %}
+    <div style="text-align: center; color: var(--text-muted); padding: 3rem;">
+      No GitHub reviews saved yet. Ask GitHubAgent to review a repository!
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

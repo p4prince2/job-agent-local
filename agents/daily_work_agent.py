@@ -1,159 +1,150 @@
-"""Daily Work Agent for Prince AI Team.
+"""Daily Work Agent for Prince AI Team (per SPEC.md §9).
 
-Specialized in planning Prince's day, decomposing high-level goals into
-atomic prioritized tasks, and maintaining a persistent SQLite database
-across GATE Prep, AI/ML Projects, GitHub Work, and Content Creation.
-Never falsely claims a reminder is set unless a database record was created.
+Manages work_items tagged by project (gate_prep, ai_ml, github, content),
+decomposes large goals into prioritized subtasks, and tracks in-app reminders.
+Never falsely claims an OS notification was set.
 """
 
-import json
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
-from agents.base_agent import BaseAgent
-from core.database import create_task, list_tasks, create_reminder, list_reminders
-from core.config import TASK_CATEGORIES
+from sqlalchemy.orm import Session
+from db.models import WorkItem, Reminder
+from db.session import SessionLocal
+from llm import default_provider
+from llm.base import LLMProvider
+from logging_utils.logger import get_logger
 
+logger = get_logger("DailyWorkAgent")
 
-DAILY_WORK_PROMPT = f"""You are the DAILY WORK & TASK MANAGEMENT AGENT for Prince.
-Prince balances high-stakes preparation and engineering across:
-{', '.join(TASK_CATEGORIES)}.
+DAILY_WORK_PROMPT = """You are the DAILY WORK AGENT for Prince.
+Prince focuses on:
+- GATE Prep (gate_prep): CS fundamentals, algorithms, math, mock tests.
+- AI/ML Projects (ai_ml): Model training, fine-tuning, RAG, agents, evaluations.
+- GitHub Work (github): Repo maintenance, code quality, unit testing, docs.
+- Content Creation (content): LinkedIn posts, Medium articles, X threads.
 
-Your core responsibilities:
-1. Help Prince plan his daily schedule with realistic time blocks.
-2. Decompose large, overwhelming goals (e.g. "Prepare GATE Computer Science algorithms" or "Implement LoRA fine-tuning") into 3-5 concrete, bite-sized tasks.
-3. Assign appropriate categories ({', '.join(TASK_CATEGORIES)}) and priorities (high, medium, low).
-4. Accurately report what tasks and reminders were stored in the database.
-5. STRICT RULE: Never claim a reminder was created unless it was actually saved in the reminders database with a real timestamp.
+When asked to plan a day or break down a goal:
+1. Provide a realistic time-blocked schedule.
+2. Produce 2-4 concrete subtasks.
+3. For each subtask, format cleanly:
+   - Title: Clear, actionable title
+   - Tag: exactly one of [gate_prep, ai_ml, github, content]
+   - Priority: [high, medium, low]
+   - Estimated Duration
 
-Format your responses with clear schedule breakdowns, prioritized action lists, and explicit task records.
+Remember: Any reminder you propose is IN-APP ONLY (viewable on the dashboard).
 """
 
 
-class DailyWorkAgent(BaseAgent):
-    """Specialized task planner, day organizer, and goal decomposition agent."""
+class DailyWorkAgent:
+    """Specialized task manager, day planner, and goal breakdown agent."""
 
-    def __init__(self):
-        super().__init__(
-            name="DailyWorkAgent",
-            role="Daily Work & Schedule Planner",
-            description="Decomposes goals, manages daily tasks across GATE and AI/ML, and tracks progress in SQLite.",
-            system_prompt=DAILY_WORK_PROMPT
-        )
+    def __init__(self, llm: Optional[LLMProvider] = None):
+        self.name = "DailyWorkAgent"
+        self.role = "Daily Work & Goal Breakdown Specialist"
+        self.llm = llm or default_provider
 
-    def execute(self, task: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """Executes planning request, creates tasks/reminders in SQLite, and returns action plan."""
-        self.log(f"Received daily work task: {task[:80]}...")
+    def execute(self, task: str, context: Optional[Dict[str, Any]] = None, db: Optional[Session] = None) -> Dict[str, Any]:
+        """Plans schedule, breaks down goals, and saves work_items and in-app reminders."""
+        logger.info(f"DailyWorkAgent executing: {task[:80]}...")
+        owns_db = False
+        if db is None:
+            db = SessionLocal()
+            owns_db = True
 
-        # Fetch current pending tasks for context
-        current_tasks = list_tasks(status="pending")
-        task_summary = f"{len(current_tasks)} pending tasks currently in database."
+        try:
+            # Query existing active work items for context
+            active_items = db.query(WorkItem).filter(WorkItem.status != "done").limit(10).all()
+            context_summary = f"Current active items in DB: {len(active_items)}"
 
-        prompt = f"""
-Prince's Request: {task}
-
-Current Context:
-{task_summary}
+            prompt = f"""
+Request from Prince: {task}
+Context: {context_summary}
 
 Please provide:
-1. Structured daily plan / schedule breakdown.
-2. 2-4 concrete, actionable subtasks to add to the task tracker.
-For each subtask, provide:
-- Title: concise action title
-- Category: choose one of [{', '.join(TASK_CATEGORIES)}]
-- Priority: high, medium, or low
-- Estimated Duration
-
-3. Optional reminder recommendation if requested.
+1. A structured daily schedule / breakdown.
+2. 2-4 concrete subtasks to store into the work items tracker.
 """
-
-        response_text = self.call_llm(prompt, temperature=0.6)
-
-        # Parse and persist tasks into SQLite
-        created_tasks = self._parse_and_store_tasks(task, response_text)
-
-        # Handle explicit reminder creation if requested
-        created_reminders = []
-        task_lower = task.lower()
-        if "remind" in task_lower or "reminder" in task_lower:
-            rem_title = f"Follow-up: {task[:40]}"
-            # Set reminder 3 hours from now as a sensible default
-            remind_time = (datetime.now() + timedelta(hours=3)).strftime("%Y-%m-%d %H:%M")
-            rem_id = create_reminder(
-                title=rem_title,
-                remind_at=remind_time,
-                task_id=created_tasks[0]["id"] if created_tasks else None
+            response_text = self.llm.generate(
+                messages=[{"role": "user", "content": prompt}],
+                system_prompt=DAILY_WORK_PROMPT,
+                temperature=0.6
             )
-            created_reminders.append({
-                "id": rem_id,
-                "title": rem_title,
-                "remind_at": remind_time,
-                "status": "active"
-            })
-            self.log(f"Created verified reminder #{rem_id} for {remind_time}.")
 
-        return {
-            "agent": self.name,
-            "status": "success",
-            "plan": response_text,
-            "tasks_created": created_tasks,
-            "reminders_created": created_reminders,
-            "active_tasks_count": len(current_tasks) + len(created_tasks)
-        }
+            # Parse and insert tasks into work_items
+            created_items = self._store_work_items(task, response_text, db)
 
-    def _parse_and_store_tasks(self, user_request: str, response_text: str) -> List[Dict[str, Any]]:
-        """Extracts task items from LLM response and creates records in SQLite."""
-        tasks_to_add = []
+            # Check for in-app reminder
+            created_reminders = []
+            if "remind" in task.lower():
+                rem_time = (datetime.utcnow() + timedelta(hours=3)).strftime("%Y-%m-%d %H:%M")
+                parent_work_id = created_items[0]["id"] if created_items else None
+                rem = Reminder(
+                    work_item_id=parent_work_id,
+                    remind_at=rem_time,
+                    fired=False,
+                    created_at=datetime.utcnow()
+                )
+                db.add(rem)
+                db.commit()
+                db.refresh(rem)
+                created_reminders.append({
+                    "id": rem.id,
+                    "remind_at": rem_time,
+                    "type": "in-app"
+                })
+                logger.info(f"Created in-app reminder #{rem.id} for {rem_time}")
 
-        # Categorize based on keywords in request or response
-        category = "General"
+            return {
+                "agent": self.name,
+                "status": "success",
+                "plan": response_text,
+                "work_items_created": created_items,
+                "reminders_created": created_reminders,
+                "note": "Reminders are in-app only and will be displayed on the dashboard."
+            }
+        finally:
+            if owns_db:
+                db.close()
+
+    def _store_work_items(self, user_request: str, response_text: str, db: Session) -> List[Dict[str, Any]]:
+        """Extracts task items from LLM text and saves to SQLite work_items table."""
         req_lower = user_request.lower()
-        if "gate" in req_lower:
-            category = "GATE Prep"
-        elif "ml" in req_lower or "ai" in req_lower or "model" in req_lower:
-            category = "AI/ML Projects"
-        elif "git" in req_lower or "repo" in req_lower or "code" in req_lower:
-            category = "GitHub Work"
-        elif "post" in req_lower or "linkedin" in req_lower or "content" in req_lower:
-            category = "Content Creation"
+        tag = "gate_prep" if "gate" in req_lower else "ai_ml" if ("ai" in req_lower or "ml" in req_lower) else "github" if "git" in req_lower else "content" if "post" in req_lower else "ai_ml"
 
-        # Search for numbered or bullet lines
+        items = []
         for line in response_text.split("\n"):
-            line_clean = line.strip()
-            if (line_clean.startswith(("- Title:", "Title:", "- **Title:**", "**Title:**")) or
-                (line_clean.startswith(("-", "*", "1.", "2.", "3.", "4.")) and len(line_clean) > 15 and ":" in line_clean)):
-                clean_title = line_clean.split(":")[-1].strip().strip("*\"'")
-                if 10 < len(clean_title) < 120 and clean_title not in [t["title"] for t in tasks_to_add]:
-                    priority = "high" if "high" in line.lower() else "medium"
-                    tasks_to_add.append({
-                        "title": clean_title,
-                        "category": category,
-                        "priority": priority
-                    })
-                    if len(tasks_to_add) >= 4:
+            clean = line.strip()
+            if (clean.startswith(("- Title:", "Title:", "- **Title:**", "**Title:**")) or
+                (clean.startswith(("-", "*", "1.", "2.", "3.", "4.")) and len(clean) > 15 and ":" in clean)):
+                title_part = clean.split(":")[-1].strip().strip("*\"'")
+                if 10 < len(title_part) < 120 and title_part not in [it["title"] for it in items]:
+                    prio = "high" if "high" in line.lower() else "medium"
+                    items.append({"title": title_part, "tag": tag, "priority": prio})
+                    if len(items) >= 4:
                         break
 
-        # Fallback if specific titles weren't extracted
-        if not tasks_to_add:
-            tasks_to_add.append({
-                "title": f"Execute: {user_request[:60]}",
-                "category": category,
-                "priority": "medium"
-            })
+        if not items:
+            items.append({"title": f"Execute: {user_request[:60]}", "tag": tag, "priority": "medium"})
 
-        stored = []
-        for t in tasks_to_add:
-            tid = create_task(
-                title=t["title"],
-                description=f"Generated via DailyWorkAgent for: {user_request[:80]}",
-                category=t["category"],
-                priority=t["priority"]
+        saved = []
+        for it in items:
+            work_item = WorkItem(
+                title=it["title"],
+                project_tag=it["tag"],
+                priority=it["priority"],
+                status="todo",
+                created_at=datetime.utcnow()
             )
-            stored.append({
-                "id": tid,
-                "title": t["title"],
-                "category": t["category"],
-                "priority": t["priority"]
+            db.add(work_item)
+            db.commit()
+            db.refresh(work_item)
+            saved.append({
+                "id": work_item.id,
+                "title": work_item.title,
+                "project_tag": work_item.project_tag,
+                "priority": work_item.priority
             })
-            self.log(f"Created task #{tid}: '{t['title']}' ({t['category']})")
+            logger.info(f"Saved WorkItem #{work_item.id}: '{work_item.title}' [{work_item.project_tag}]")
 
-        return stored
+        return saved
