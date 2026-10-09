@@ -48,6 +48,15 @@ class TestFastAPIRoutes(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertIn("Agent Activity Logs", resp.text)
 
+    def test_api_status(self):
+        resp = self.client.get("/api/status")
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data["status"], "healthy")
+        self.assertEqual(data["app"], "Prince AI Team")
+        self.assertIn("llm", data)
+        self.assertIn("pending_approvals", data)
+
 
 if __name__ == "__main__":
     unittest.main()

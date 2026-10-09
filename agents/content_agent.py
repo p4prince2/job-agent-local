@@ -131,6 +131,7 @@ class ContentAgent:
         linkedin_text = self._extract_section(response_text, "1. LinkedIn Post") or response_text
         medium_text = self._extract_section(response_text, "2. Expanded Medium Article") or response_text
         x_text = self._extract_section(response_text, "3. Condensed X (Twitter) Post") or response_text[:280]
+        image_prompt = self._extract_section(response_text, "4. Cover Image Generation Prompt")
 
         source_ref = context.get("repo") if context else None
 
@@ -179,6 +180,7 @@ class ContentAgent:
             "linkedin_content": linkedin_text,
             "medium_content": medium_text,
             "x_content": x_text,
+            "cover_image_prompt": image_prompt,
             "full_response": response_text
         }
 

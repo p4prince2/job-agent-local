@@ -19,6 +19,7 @@ from db.models import Task, AgentRun, Draft, GitHubReview, WorkItem, Reminder, A
 from db.session import init_db, get_db, SessionLocal
 from agents.supervisor import default_supervisor
 from approvals.manager import ApprovalManager
+from llm import default_provider
 from logging_utils.logger import get_logger, log_event
 
 logger = get_logger("MainApp")
@@ -150,6 +151,22 @@ def poll_task_status(task_id: int, request: Request, db: Session = Depends(get_d
 
     context = {"task": task}
     return templates.TemplateResponse(request=request, name="partials/task_card.html", context=context)
+
+
+@app.get("/api/status")
+def system_status_endpoint(db: Session = Depends(get_db)):
+    """Health check and provider status inspection endpoint."""
+    llm_info = default_provider.check_status()
+    pending_approvals = len(ApprovalManager.get_pending_approvals(db=db))
+    return {
+        "status": "healthy",
+        "app": "Prince AI Team",
+        "version": "1.0.0",
+        "llm": llm_info,
+        "scheduler_running": scheduler.running,
+        "pending_approvals": pending_approvals,
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
 
 
 # ----------------------------------------------------------------------

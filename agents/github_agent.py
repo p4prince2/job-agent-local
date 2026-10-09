@@ -6,6 +6,7 @@ Saves structured JSON and human-readable reports to `github_reviews`.
 """
 
 import json
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 from sqlalchemy.orm import Session
 from config import GITHUB_USERNAME
@@ -58,7 +59,12 @@ class GitHubAgent:
             repo_target = self._resolve_target_repo(task, context)
             logger.info(f"Target repository identified as: {repo_target}")
 
-            is_local = repo_target.startswith(".") or ("/" in repo_target and "\\" in repo_target) or repo_target.startswith("c:")
+            is_local = (
+                repo_target.startswith(".")
+                or "\\" in repo_target
+                or (len(repo_target) > 1 and repo_target[1] == ":")
+                or Path(repo_target).exists()
+            )
 
             if is_local:
                 local_info = self.github_tools.inspect_local_repo(repo_target)
@@ -130,10 +136,15 @@ Provide your structured architectural review and actionable recommendations.
 
         words = task.split()
         for w in words:
-            if "github.com/" in w:
-                return "/".join(w.rstrip("/").split("github.com/")[-1].split("/")[:2])
-            if "/" in w and not w.startswith("http"):
-                return w.strip(",.?!")
+            clean_w = w.strip("`'\",.?!")
+            if clean_w in [".", ".."] or clean_w.startswith("./") or clean_w.startswith(".\\"):
+                return clean_w
+            if Path(clean_w).exists() and clean_w.lower() not in ["the", "a", "in", "for", "to", "at", "and", "my"]:
+                return clean_w
+            if "github.com/" in clean_w:
+                return "/".join(clean_w.rstrip("/").split("github.com/")[-1].split("/")[:2])
+            if "/" in clean_w and not clean_w.startswith("http"):
+                return clean_w
 
         # Check public repos
         repos = self.github_tools.list_user_repos(limit=3)
