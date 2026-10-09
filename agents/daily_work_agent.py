@@ -5,7 +5,7 @@ decomposes large goals into prioritized subtasks, and tracks in-app reminders.
 Never falsely claims an OS notification was set.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 from sqlalchemy.orm import Session
 from db.models import WorkItem, Reminder
@@ -77,13 +77,13 @@ Please provide:
             # Check for in-app reminder
             created_reminders = []
             if "remind" in task.lower():
-                rem_time = (datetime.utcnow() + timedelta(hours=3)).strftime("%Y-%m-%d %H:%M")
+                rem_time = (datetime.now(timezone.utc) + timedelta(hours=3)).strftime("%Y-%m-%d %H:%M")
                 parent_work_id = created_items[0]["id"] if created_items else None
                 rem = Reminder(
                     work_item_id=parent_work_id,
                     remind_at=rem_time,
                     fired=False,
-                    created_at=datetime.utcnow()
+                    created_at=datetime.now(timezone.utc)
                 )
                 db.add(rem)
                 db.commit()
@@ -134,7 +134,7 @@ Please provide:
                 project_tag=it["tag"],
                 priority=it["priority"],
                 status="todo",
-                created_at=datetime.utcnow()
+                created_at=datetime.now(timezone.utc)
             )
             db.add(work_item)
             db.commit()

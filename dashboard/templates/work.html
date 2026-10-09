@@ -8,8 +8,28 @@
     <div class="card">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
         <h2>📅 Work Items</h2>
-        <span style="font-size: 0.85rem; color: var(--text-muted);">Grouped by Project</span>
+        <span style="font-size: 0.85rem; color: var(--text-muted);">Tasks & Subtasks</span>
       </div>
+
+      <!-- Quick Task Creation Form -->
+      <form action="/work/create" method="POST" style="margin-bottom: 1.25rem; background: #F8FAFC; padding: 1rem; border-radius: 6px; border: 1px solid var(--border);">
+        <div style="font-weight: 600; font-size: 0.85rem; margin-bottom: 0.5rem;">➕ Add New Task</div>
+        <input type="text" name="title" placeholder="Task title (e.g. Solve 10 Graph Theory PYQs)" required style="margin-top: 0;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 0.5rem; margin-top: 0.5rem;">
+          <select name="project_tag">
+            <option value="gate_prep">GATE Prep</option>
+            <option value="ai_ml">AI/ML Projects</option>
+            <option value="github">GitHub Work</option>
+            <option value="content">Content Creation</option>
+          </select>
+          <select name="priority">
+            <option value="high">High Priority</option>
+            <option value="medium" selected>Medium Priority</option>
+            <option value="low">Low Priority</option>
+          </select>
+          <button type="submit" class="btn btn-primary" style="font-size: 0.85rem;">Add</button>
+        </div>
+      </form>
 
       <div style="margin-bottom: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
         <a href="/work?tag=all" class="btn btn-secondary" style="font-size: 0.8rem;">All</a>
@@ -24,7 +44,7 @@
         <div style="border: 1px solid var(--border); padding: 0.75rem; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; background: {% if item.status == 'done' %}#F8FAFC{% else %}var(--surface){% endif %};">
           <div style="display: flex; align-items: center; gap: 0.75rem;">
             <form action="/work/toggle/{{ item.id }}" method="POST" style="margin: 0;">
-              <input type="checkbox" onChange="this.form.submit()" {% if item.status == 'done' %}checked{% endif %}>
+              <input type="checkbox" onChange="this.form.submit()" {% if item.status == 'done' %}checked{% endif %} title="Toggle complete">
             </form>
             <div>
               <div style="{% if item.status == 'done' %}text-decoration: line-through; color: var(--text-muted);{% else %}font-weight: 600;{% endif %}">
@@ -36,9 +56,14 @@
               <span style="font-size: 0.75rem; color: var(--text-muted); margin-left: 0.4rem;">Priority: {{ item.priority }}</span>
             </div>
           </div>
-          <span class="badge {% if item.status == 'done' %}badge-content{% else %}badge-daily{% endif %}" style="font-size: 0.75rem;">
-            {{ item.status }}
-          </span>
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <span class="badge {% if item.status == 'done' %}badge-content{% else %}badge-daily{% endif %}" style="font-size: 0.75rem;">
+              {{ item.status }}
+            </span>
+            <form action="/work/delete/{{ item.id }}" method="POST" style="margin: 0;" onsubmit="return confirm('Delete this task?');">
+              <button type="submit" class="btn btn-secondary" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;" title="Delete task">🗑️</button>
+            </form>
+          </div>
         </div>
         {% else %}
         <div style="text-align: center; color: var(--text-muted); padding: 2rem;">No work items recorded.</div>
@@ -55,12 +80,14 @@
       </p>
 
       {% for rem in reminders %}
-      <div style="background: #FFFBEB; border: 1px solid #FDE68A; padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
+      <div style="background: {% if rem.fired %}#F3F4F6{% else %}#FFFBEB{% endif %}; border: 1px solid {% if rem.fired %}#D1D5DB{% else %}#FDE68A{% endif %}; padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
         <div>
           <strong>🔔 Scheduled Check-in</strong>
-          <div style="font-size: 0.85rem; color: #92400E;">Remind at: <code>{{ rem.remind_at }}</code></div>
+          <div style="font-size: 0.85rem; color: {% if rem.fired %}#4B5563{% else %}#92400E{% endif %};">Remind at: <code>{{ rem.remind_at }}</code></div>
         </div>
-        <span class="badge badge-daily">Active</span>
+        <span class="badge {% if rem.fired %}badge-supervisor{% else %}badge-daily{% endif %}">
+          {% if rem.fired %}Triggered{% else %}Active{% endif %}
+        </span>
       </div>
       {% else %}
       <div style="text-align: center; color: var(--text-muted); padding: 2rem;">No active reminders scheduled.</div>

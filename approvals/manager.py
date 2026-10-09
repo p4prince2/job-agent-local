@@ -5,7 +5,7 @@ or publishing action can proceed.
 """
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from sqlalchemy.orm import Session
 from db.models import Approval
@@ -58,7 +58,7 @@ class ApprovalManager:
                 payload_json=payload_str,
                 requested_by_agent=requested_by_agent,
                 status="pending",
-                created_at=datetime.utcnow()
+                created_at=datetime.now(timezone.utc)
             )
             db.add(approval)
             db.commit()
@@ -116,7 +116,7 @@ class ApprovalManager:
                 return False
 
             approval.status = decision
-            approval.resolved_at = datetime.utcnow()
+            approval.resolved_at = datetime.now(timezone.utc)
             db.commit()
 
             logger.info(f"Approval request #{approval_id} ({approval.action_type}) marked as {decision.upper()}")

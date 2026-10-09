@@ -1,0 +1,73 @@
+<div class="card" id="task-card"
+     {% if task and task.status == 'running' %}
+     hx-get="/api/tasks/{{ task.id }}/poll"
+     hx-trigger="every 1.5s"
+     hx-swap="outerHTML"
+     {% endif %}>
+  
+  <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem;">
+    <div>
+      <span style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700;">Task #{{ task.id }}</span>
+      <h3 style="margin-top: 0.2rem;">{{ task.raw_input }}</h3>
+    </div>
+    <div>
+      {% if task.status == 'running' %}
+      <span class="badge badge-daily" style="animation: pulse 1.5s infinite;">
+        ⏳ RUNNING...
+      </span>
+      {% elif task.status == 'completed' %}
+      <span class="badge badge-content">
+        ✅ COMPLETED
+      </span>
+      {% else %}
+      <span class="badge badge-automation">
+        ❌ FAILED
+      </span>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if task.get_routed_agents() %}
+  <div style="margin-bottom: 1rem;">
+    <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600;">ROUTED PIPELINE:</span>
+    <div style="display: flex; gap: 0.5rem; margin-top: 0.25rem;">
+      {% for ag in task.get_routed_agents() %}
+        <span class="badge {% if ag == 'GitHubAgent' %}badge-github{% elif ag == 'ContentAgent' %}badge-content{% elif ag == 'DailyWorkAgent' %}badge-daily{% else %}badge-automation{% endif %}">
+          {{ ag }}
+        </span>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if task.agent_runs %}
+  <h4 style="font-size: 0.9rem; margin-bottom: 0.5rem; color: var(--text-muted);">AGENT EXECUTION TRACE:</h4>
+  <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+    {% for run in task.agent_runs %}
+    <div style="background: #F8FAFC; border: 1px solid var(--border); padding: 0.75rem; border-radius: 6px;">
+      <div style="display: flex; justify-content: space-between;">
+        <strong>{{ run.agent_name }}</strong>
+        <span class="badge {% if run.status == 'completed' %}badge-content{% elif run.status == 'failed' %}badge-automation{% else %}badge-daily{% endif %}">
+          {{ run.status }}
+        </span>
+      </div>
+      {% if run.output %}
+      <pre style="margin-top: 0.5rem; max-height: 160px; font-size: 0.82rem;">{{ run.output }}</pre>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% elif task.status == 'running' %}
+  <div style="padding: 1rem; text-align: center; color: var(--text-muted); font-size: 0.9rem; background: #F8FAFC; border-radius: 6px;">
+    🤖 Supervisor is coordinating agents and initiating execution...
+  </div>
+  {% endif %}
+
+  {% if task.executive_summary %}
+  <div style="margin-top: 1.25rem; padding: 1rem; background: #EEF2FF; border-left: 4px solid var(--primary); border-radius: 4px;">
+    <h4 style="color: var(--primary); margin-bottom: 0.25rem;">👑 Supervisor Executive Summary:</h4>
+    <p style="white-space: pre-wrap; font-size: 0.95rem; line-height: 1.6;">{{ task.executive_summary }}</p>
+  </div>
+  {% endif %}
+
+</div>

@@ -9,7 +9,7 @@ Lead orchestrator:
 """
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from sqlalchemy.orm import Session
 from db.models import Task, AgentRun
@@ -109,7 +109,12 @@ class SupervisorAgent:
 
         return shortlist
 
-    def execute_workflow(self, raw_input: str, db: Optional[Session] = None) -> Dict[str, Any]:
+    def execute_workflow(
+        self,
+        raw_input: str,
+        db: Optional[Session] = None,
+        task_id: Optional[int] = None
+    ) -> Dict[str, Any]:
         """Executes full multi-agent lifecycle and records audit trail into SQLite."""
         logger.info(f"Supervisor received task: '{raw_input[:80]}'...")
         owns_db = False
@@ -118,15 +123,24 @@ class SupervisorAgent:
             owns_db = True
 
         try:
-            # 1. Create Task record in DB
-            task_record = Task(
-                raw_input=raw_input,
-                status="running",
-                created_at=datetime.utcnow()
-            )
-            db.add(task_record)
-            db.commit()
-            db.refresh(task_record)
+            # 1. Fetch or create Task record in DB
+            now = datetime.now(timezone.utc)
+            if task_id:
+                task_record = db.query(Task).filter(Task.id == task_id).first()
+                if not task_record:
+                    task_record = Task(raw_input=raw_input, status="running", created_at=now)
+                    db.add(task_record)
+                    db.commit()
+                    db.refresh(task_record)
+            else:
+                task_record = Task(
+                    raw_input=raw_input,
+                    status="running",
+                    created_at=now
+                )
+                db.add(task_record)
+                db.commit()
+                db.refresh(task_record)
 
             # 2. Determine agent pipeline
             pipeline = self.route_task(raw_input)
@@ -139,7 +153,7 @@ class SupervisorAgent:
 
             # 3. Execute agents in sequence
             for agent_name in pipeline:
-                started_at = datetime.utcnow()
+                started_at = datetime.now(timezone.utc)
                 run_record = AgentRun(
                     task_id=task_record.id,
                     agent_name=agent_name,
@@ -177,7 +191,7 @@ class SupervisorAgent:
                     run_record.status = "completed"
                     run_record.output = step_output.get("plan", "")[:2000]
 
-                run_record.finished_at = datetime.utcnow()
+                run_record.finished_at = datetime.now(timezone.utc)
                 db.commit()
 
                 step_runs.append({
@@ -206,9 +220,10 @@ Provide an executive summary to Prince explaining what was accomplished and next
                 temperature=0.5
             )
 
-            # Mark task completed
+            # Mark task completed and save executive summary
+            task_record.executive_summary = final_summary
             task_record.status = "completed"
-            task_record.completed_at = datetime.utcnow()
+            task_record.completed_at = datetime.now(timezone.utc)
             db.commit()
 
             return {

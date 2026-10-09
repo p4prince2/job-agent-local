@@ -9,7 +9,7 @@ import os
 import requests
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-from core.config import GITHUB_USERNAME, GITHUB_TOKEN
+from config import GITHUB_USERNAME, GITHUB_TOKEN
 
 
 class GitHubTools:

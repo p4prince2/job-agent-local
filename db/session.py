@@ -31,6 +31,18 @@ def init_db() -> None:
     """Creates all database tables defined in models.py."""
     Base.metadata.create_all(bind=engine)
 
+    # Lightweight SQLite migration for added columns
+    if DATABASE_URL.startswith("sqlite"):
+        with engine.connect() as conn:
+            try:
+                res = conn.exec_driver_sql("PRAGMA table_info(tasks)").fetchall()
+                col_names = [row[1] for row in res]
+                if col_names and "executive_summary" not in col_names:
+                    conn.exec_driver_sql("ALTER TABLE tasks ADD COLUMN executive_summary TEXT")
+                    conn.commit()
+            except Exception:
+                pass
+
 
 def get_db():
     """FastAPI dependency for yielding database session."""

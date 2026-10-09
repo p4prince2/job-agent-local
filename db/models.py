@@ -1,7 +1,7 @@
 """SQLAlchemy ORM models for Prince AI Team (per SPEC.md §5)."""
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from sqlalchemy import (
     Column, Integer, String, Text, Boolean, DateTime, ForeignKey, Index
@@ -9,6 +9,11 @@ from sqlalchemy import (
 from sqlalchemy.orm import declarative_base, relationship
 
 Base = declarative_base()
+
+
+def utc_now() -> datetime:
+    """Returns current datetime in UTC."""
+    return datetime.now(timezone.utc)
 
 
 class Task(Base):
@@ -19,7 +24,8 @@ class Task(Base):
     raw_input = Column(Text, nullable=False)
     routed_agents = Column(Text, nullable=False, default="[]")  # JSON list of agent names
     status = Column(String(50), nullable=False, default="pending")  # pending, running, completed, failed
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    executive_summary = Column(Text, nullable=True)
+    created_at = Column(DateTime, nullable=False, default=utc_now)
     completed_at = Column(DateTime, nullable=True)
 
     agent_runs = relationship("AgentRun", back_populates="task", cascade="all, delete-orphan")
@@ -44,7 +50,7 @@ class AgentRun(Base):
     input = Column(Text, nullable=False)
     output = Column(Text, nullable=True)
     status = Column(String(50), nullable=False, default="pending")  # pending, running, completed, failed, blocked_on_approval
-    started_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    started_at = Column(DateTime, nullable=False, default=utc_now)
     finished_at = Column(DateTime, nullable=True)
 
     task = relationship("Task", back_populates="agent_runs")
@@ -60,7 +66,7 @@ class Draft(Base):
     status = Column(String(50), nullable=False, default="draft")  # draft, approved, rejected, posted_manually, posted_via_api
     content = Column(Text, nullable=False)
     source_ref = Column(String(255), nullable=True)  # e.g. a github_review id or URL
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=utc_now)
 
 
 class GitHubReview(Base):
@@ -71,7 +77,7 @@ class GitHubReview(Base):
     repo = Column(String(255), nullable=False)
     summary_json = Column(Text, nullable=False)  # JSON telemetry & findings
     human_summary = Column(Text, nullable=False)
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=utc_now)
 
     def get_summary_dict(self) -> Dict[str, Any]:
         try:
@@ -91,7 +97,7 @@ class WorkItem(Base):
     status = Column(String(50), nullable=False, default="todo")  # todo, in_progress, done
     priority = Column(String(20), nullable=False, default="medium")  # high, medium, low
     due_date = Column(String(50), nullable=True)
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=utc_now)
     completed_at = Column(DateTime, nullable=True)
 
     subtasks = relationship("WorkItem", backref="parent", remote_side=[id])
@@ -105,7 +111,7 @@ class Reminder(Base):
     work_item_id = Column(Integer, ForeignKey("work_items.id"), nullable=True)
     remind_at = Column(String(50), nullable=False)
     fired = Column(Boolean, nullable=False, default=False)
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=utc_now)
 
 
 class Approval(Base):
@@ -118,7 +124,7 @@ class Approval(Base):
     payload_json = Column(Text, nullable=False, default="{}")
     requested_by_agent = Column(String(100), nullable=False)
     status = Column(String(50), nullable=False, default="pending")  # pending, approved, rejected
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=utc_now)
     resolved_at = Column(DateTime, nullable=True)
 
     def get_payload(self) -> Dict[str, Any]:
@@ -136,4 +142,4 @@ class Log(Base):
     agent_name = Column(String(100), nullable=False)
     level = Column(String(20), nullable=False, default="INFO")
     message = Column(Text, nullable=False)
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=utc_now)

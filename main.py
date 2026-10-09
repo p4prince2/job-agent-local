@@ -1,22 +1,25 @@
 """Main FastAPI application for Prince AI Team (per SPEC.md v2).
 
 Serves server-rendered Jinja2 + HTMX dashboard on 127.0.0.1:8000.
-Orchestrates SQLite database, Supervisor workflows, and safety approval queue.
+Supports asynchronous background agent runs with HTMX live polling,
+in-process APScheduler reminders, and safety approval management.
 """
 
 from typing import Optional
-from fastapi import FastAPI, Request, Form, Depends, HTTPException
+from datetime import datetime, timezone
+from fastapi import FastAPI, Request, Form, Depends, HTTPException, BackgroundTasks
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
+from apscheduler.schedulers.background import BackgroundScheduler
 
 from config import BASE_DIR
 from db.models import Task, AgentRun, Draft, GitHubReview, WorkItem, Reminder, Approval, Log
-from db.session import init_db, get_db
+from db.session import init_db, get_db, SessionLocal
 from agents.supervisor import default_supervisor
 from approvals.manager import ApprovalManager
-from logging_utils.logger import get_logger
+from logging_utils.logger import get_logger, log_event
 
 logger = get_logger("MainApp")
 
@@ -27,12 +30,51 @@ app = FastAPI(title="Prince AI Team", description="Personal Multi-Agent AI Assis
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "dashboard" / "static")), name="static")
 templates = Jinja2Templates(directory=str(BASE_DIR / "dashboard" / "templates"))
 
+# APScheduler for in-process reminders (§3)
+scheduler = BackgroundScheduler()
+
+
+def check_due_reminders():
+    """Background check for due in-app reminders (§3)."""
+    db = SessionLocal()
+    try:
+        now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
+        due_reminders = db.query(Reminder).filter(
+            Reminder.fired == False,
+            Reminder.remind_at <= now_str
+        ).all()
+
+        for rem in due_reminders:
+            rem.fired = True
+            db.commit()
+            task_title = rem.work_item.title if hasattr(rem, 'work_item') and rem.work_item else "Scheduled Check-in"
+            msg = f"🔔 IN-APP REMINDER: Check-in due for '{task_title}' (Scheduled: {rem.remind_at})"
+            log_event("DailyWorkAgent", msg, level="INFO")
+            logger.info(msg)
+    except Exception as e:
+        logger.error(f"Error checking reminders: {e}")
+    finally:
+        db.close()
+
 
 @app.on_event("startup")
 def on_startup():
-    """Initializes SQLite database tables and logger."""
+    """Initializes SQLite database tables, logger, and reminder scheduler."""
     init_db()
-    logger.info("Prince AI Team FastAPI server started on http://127.0.0.1:8000")
+    try:
+        scheduler.add_job(check_due_reminders, "interval", seconds=30, id="reminder_check", replace_existing=True)
+        scheduler.start()
+        logger.info("APScheduler reminder job started (running every 30s)")
+    except Exception as e:
+        logger.warning(f"Could not start APScheduler: {e}")
+    logger.info("Prince AI Team FastAPI server ready on http://127.0.0.1:8000")
+
+
+@app.on_event("shutdown")
+def on_shutdown():
+    """Shuts down scheduler cleanly."""
+    if scheduler.running:
+        scheduler.shutdown(wait=False)
 
 
 def get_common_context(db: Session, active_tab: str = "chat") -> dict:
@@ -44,8 +86,24 @@ def get_common_context(db: Session, active_tab: str = "chat") -> dict:
     }
 
 
+def run_supervisor_task(task_id: int, prompt: str):
+    """Background task runner to prevent blocking HTTP request on Ollama inference."""
+    db = SessionLocal()
+    try:
+        default_supervisor.execute_workflow(raw_input=prompt, db=db, task_id=task_id)
+    except Exception as e:
+        logger.error(f"Error in background supervisor execution: {e}")
+        task = db.query(Task).filter(Task.id == task_id).first()
+        if task:
+            task.status = "failed"
+            task.completed_at = datetime.now(timezone.utc)
+            db.commit()
+    finally:
+        db.close()
+
+
 # ----------------------------------------------------------------------
-# 1. Console / Home (Task Submission & Workflow Live View)
+# 1. Console / Home (Task Submission & Live Polling)
 # ----------------------------------------------------------------------
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request, db: Session = Depends(get_db)):
@@ -53,7 +111,7 @@ def index(request: Request, db: Session = Depends(get_db)):
     context = get_common_context(db, active_tab="chat")
     context.update({
         "latest_task": latest_task,
-        "executive_summary": None
+        "executive_summary": latest_task.executive_summary if latest_task else None
     })
     return templates.TemplateResponse(request=request, name="index.html", context=context)
 
@@ -61,20 +119,37 @@ def index(request: Request, db: Session = Depends(get_db)):
 @app.post("/submit-task", response_class=HTMLResponse)
 def submit_task(
     request: Request,
+    background_tasks: BackgroundTasks,
     prompt: str = Form(...),
     db: Session = Depends(get_db)
 ):
-    # Execute workflow through Supervisor
-    result = default_supervisor.execute_workflow(raw_input=prompt.strip(), db=db)
-    
-    # Reload latest task to show on page
-    latest_task = db.query(Task).filter(Task.id == result["task_id"]).first()
-    context = get_common_context(db, active_tab="chat")
-    context.update({
-        "latest_task": latest_task,
-        "executive_summary": result.get("final_summary")
-    })
-    return templates.TemplateResponse(request=request, name="index.html", context=context)
+    # Create task with status 'running' immediately
+    new_task = Task(
+        raw_input=prompt.strip(),
+        status="running",
+        created_at=datetime.now(timezone.utc)
+    )
+    db.add(new_task)
+    db.commit()
+    db.refresh(new_task)
+
+    # Launch supervisor in background thread
+    background_tasks.add_task(run_supervisor_task, new_task.id, prompt.strip())
+
+    # Return partial task card with HTMX polling enabled
+    context = {"task": new_task}
+    return templates.TemplateResponse(request=request, name="partials/task_card.html", context=context)
+
+
+@app.get("/api/tasks/{task_id}/poll", response_class=HTMLResponse)
+def poll_task_status(task_id: int, request: Request, db: Session = Depends(get_db)):
+    """Endpoint called periodically by HTMX to update task progress."""
+    task = db.query(Task).filter(Task.id == task_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    context = {"task": task}
+    return templates.TemplateResponse(request=request, name="partials/task_card.html", context=context)
 
 
 # ----------------------------------------------------------------------
@@ -84,14 +159,12 @@ def submit_task(
 def tasks_page(request: Request, db: Session = Depends(get_db)):
     tasks = db.query(Task).order_by(Task.created_at.desc()).limit(50).all()
     context = get_common_context(db, active_tab="tasks")
-    context.update({
-        "tasks": tasks
-    })
+    context.update({"tasks": tasks})
     return templates.TemplateResponse(request=request, name="tasks.html", context=context)
 
 
 # ----------------------------------------------------------------------
-# 3. Content Drafts
+# 3. Content Drafts (CRUD)
 # ----------------------------------------------------------------------
 @app.get("/drafts", response_class=HTMLResponse)
 def drafts_page(request: Request, platform: Optional[str] = None, db: Session = Depends(get_db)):
@@ -108,8 +181,30 @@ def drafts_page(request: Request, platform: Optional[str] = None, db: Session = 
     return templates.TemplateResponse(request=request, name="drafts.html", context=context)
 
 
+@app.post("/drafts/update/{draft_id}")
+def update_draft_endpoint(
+    draft_id: int,
+    content: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    draft = db.query(Draft).filter(Draft.id == draft_id).first()
+    if draft:
+        draft.content = content
+        db.commit()
+    return RedirectResponse(url="/drafts", status_code=303)
+
+
+@app.post("/drafts/delete/{draft_id}")
+def delete_draft_endpoint(draft_id: int, db: Session = Depends(get_db)):
+    draft = db.query(Draft).filter(Draft.id == draft_id).first()
+    if draft:
+        db.delete(draft)
+        db.commit()
+    return RedirectResponse(url="/drafts", status_code=303)
+
+
 # ----------------------------------------------------------------------
-# 4. Daily Work & Reminders
+# 4. Daily Work & Reminders (CRUD)
 # ----------------------------------------------------------------------
 @app.get("/work", response_class=HTMLResponse)
 def work_page(request: Request, tag: Optional[str] = None, db: Session = Depends(get_db)):
@@ -117,7 +212,7 @@ def work_page(request: Request, tag: Optional[str] = None, db: Session = Depends
     if tag and tag != "all":
         query = query.filter(WorkItem.project_tag == tag.lower())
     work_items = query.order_by(WorkItem.created_at.desc()).all()
-    reminders = db.query(Reminder).filter(Reminder.fired == False).order_by(Reminder.remind_at.asc()).all()
+    reminders = db.query(Reminder).order_by(Reminder.remind_at.asc()).all()
 
     context = get_common_context(db, active_tab="work")
     context.update({
@@ -126,6 +221,27 @@ def work_page(request: Request, tag: Optional[str] = None, db: Session = Depends
         "selected_tag": tag or "all"
     })
     return templates.TemplateResponse(request=request, name="work.html", context=context)
+
+
+@app.post("/work/create")
+def create_work_item_endpoint(
+    title: str = Form(...),
+    project_tag: str = Form("general"),
+    priority: str = Form("medium"),
+    due_date: Optional[str] = Form(None),
+    db: Session = Depends(get_db)
+):
+    item = WorkItem(
+        title=title.strip(),
+        project_tag=project_tag,
+        priority=priority,
+        due_date=due_date,
+        status="todo",
+        created_at=datetime.now(timezone.utc)
+    )
+    db.add(item)
+    db.commit()
+    return RedirectResponse(url="/work", status_code=303)
 
 
 @app.post("/work/toggle/{item_id}")
@@ -137,6 +253,15 @@ def toggle_work_item(item_id: int, db: Session = Depends(get_db)):
     return RedirectResponse(url="/work", status_code=303)
 
 
+@app.post("/work/delete/{item_id}")
+def delete_work_item_endpoint(item_id: int, db: Session = Depends(get_db)):
+    item = db.query(WorkItem).filter(WorkItem.id == item_id).first()
+    if item:
+        db.delete(item)
+        db.commit()
+    return RedirectResponse(url="/work", status_code=303)
+
+
 # ----------------------------------------------------------------------
 # 5. GitHub Reviews
 # ----------------------------------------------------------------------
@@ -144,9 +269,7 @@ def toggle_work_item(item_id: int, db: Session = Depends(get_db)):
 def github_page(request: Request, db: Session = Depends(get_db)):
     reviews = db.query(GitHubReview).order_by(GitHubReview.created_at.desc()).all()
     context = get_common_context(db, active_tab="github")
-    context.update({
-        "reviews": reviews
-    })
+    context.update({"reviews": reviews})
     return templates.TemplateResponse(request=request, name="github.html", context=context)
 
 

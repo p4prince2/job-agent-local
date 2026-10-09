@@ -7,7 +7,7 @@ to the SQLite `logs` table for instant dashboard visibility.
 import json
 import logging
 from logging.handlers import RotatingFileHandler
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from config import LOG_DIR, LOG_LEVEL
 from db.session import SessionLocal
@@ -32,7 +32,7 @@ _logger.addHandler(console_handler)
 
 def log_event(agent_name: str, message: str, level: str = "INFO") -> None:
     """Logs an event to both the rotating file (as JSON line) and SQLite `logs` table."""
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     payload = {
         "timestamp": now.isoformat(),
         "agent": agent_name,
