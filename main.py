@@ -212,11 +212,13 @@ def update_draft_endpoint(
 
 
 @app.post("/drafts/delete/{draft_id}")
-def delete_draft_endpoint(draft_id: int, db: Session = Depends(get_db)):
+def delete_draft_endpoint(request: Request, draft_id: int, db: Session = Depends(get_db)):
     draft = db.query(Draft).filter(Draft.id == draft_id).first()
     if draft:
         db.delete(draft)
         db.commit()
+    if request.headers.get("HX-Request"):
+        return HTMLResponse("")
     return RedirectResponse(url="/drafts", status_code=303)
 
 
@@ -262,20 +264,62 @@ def create_work_item_endpoint(
 
 
 @app.post("/work/toggle/{item_id}")
-def toggle_work_item(item_id: int, db: Session = Depends(get_db)):
+def toggle_work_item(request: Request, item_id: int, db: Session = Depends(get_db)):
     item = db.query(WorkItem).filter(WorkItem.id == item_id).first()
     if item:
         item.status = "done" if item.status != "done" else "todo"
         db.commit()
+        db.refresh(item)
+    if request.headers.get("HX-Request") and item:
+        is_done = item.status == "done"
+        line_style = "text-decoration: line-through; color: var(--text-muted);" if is_done else "font-weight: 600;"
+        bg_style = "#F8FAFC" if is_done else "var(--surface)"
+        badge_cls = "badge-content" if is_done else "badge-daily"
+        checked = "checked" if is_done else ""
+        return HTMLResponse(f"""
+        <div id="work-item-{item.id}" style="border: 1px solid var(--border); padding: 0.75rem; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; background: {bg_style};">
+          <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <form action="/work/toggle/{item.id}" method="POST"
+                  hx-post="/work/toggle/{item.id}"
+                  hx-target="#work-item-{item.id}"
+                  hx-swap="outerHTML" style="margin: 0;">
+              <input type="checkbox" onChange="this.form.requestSubmit()" {checked} title="Toggle complete">
+            </form>
+            <div>
+              <div style="{line_style}">
+                {item.title}
+              </div>
+              <span class="badge badge-daily" style="font-size: 0.7rem; padding: 0.1rem 0.4rem;">
+                {item.project_tag}
+              </span>
+              <span style="font-size: 0.75rem; color: var(--text-muted); margin-left: 0.4rem;">Priority: {item.priority}</span>
+            </div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <span class="badge {badge_cls}" style="font-size: 0.75rem;">
+              {item.status}
+            </span>
+            <form action="/work/delete/{item.id}" method="POST"
+                  hx-post="/work/delete/{item.id}"
+                  hx-target="#work-item-{item.id}"
+                  hx-swap="outerHTML swap:300ms"
+                  style="margin: 0;" onsubmit="return confirm('Delete this task?');">
+              <button type="submit" class="btn btn-secondary" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;" title="Delete task">🗑️</button>
+            </form>
+          </div>
+        </div>
+        """)
     return RedirectResponse(url="/work", status_code=303)
 
 
 @app.post("/work/delete/{item_id}")
-def delete_work_item_endpoint(item_id: int, db: Session = Depends(get_db)):
+def delete_work_item_endpoint(request: Request, item_id: int, db: Session = Depends(get_db)):
     item = db.query(WorkItem).filter(WorkItem.id == item_id).first()
     if item:
         db.delete(item)
         db.commit()
+    if request.headers.get("HX-Request"):
+        return HTMLResponse("")
     return RedirectResponse(url="/work", status_code=303)
 
 
@@ -307,11 +351,23 @@ def approvals_page(request: Request, db: Session = Depends(get_db)):
 
 @app.post("/approvals/resolve/{approval_id}")
 def resolve_approval_endpoint(
+    request: Request,
     approval_id: int,
     decision: str = Form(...),
     db: Session = Depends(get_db)
 ):
     ApprovalManager.resolve_approval(approval_id, decision=decision, db=db)
+    if request.headers.get("HX-Request"):
+        status_color = "#059669" if decision == "approved" else "#DC2626"
+        icon = "✅" if decision == "approved" else "❌"
+        return HTMLResponse(f"""
+        <div style="border: 1px solid {status_color}; background: #F8FAFC; padding: 1rem 1.25rem; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <div>
+                <strong>{icon} Action #{approval_id} Resolved:</strong> Marked as <span style="font-weight: 700; color: {status_color}; text-transform: uppercase;">{decision}</span>.
+            </div>
+            <span style="font-size: 0.8rem; color: var(--text-muted);">{datetime.now(timezone.utc).strftime('%H:%M:%S')} UTC</span>
+        </div>
+        """)
     return RedirectResponse(url="/approvals", status_code=303)
 
 

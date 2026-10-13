@@ -11,21 +11,22 @@
         Drafts for LinkedIn, Medium, and X. Saved locally in SQLite; never auto-published without explicit approval.
       </p>
     </div>
-    <div style="display: flex; gap: 0.5rem;">
+    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
       <a href="/drafts?platform=all" class="btn btn-secondary" style="font-size: 0.85rem;">All</a>
       <a href="/drafts?platform=linkedin" class="btn btn-secondary" style="font-size: 0.85rem;">LinkedIn</a>
       <a href="/drafts?platform=medium" class="btn btn-secondary" style="font-size: 0.85rem;">Medium</a>
       <a href="/drafts?platform=x" class="btn btn-secondary" style="font-size: 0.85rem;">X (Twitter)</a>
+      <a href="/drafts?platform=image_prompt" class="btn btn-secondary" style="font-size: 0.85rem;">🎨 Image Prompts</a>
     </div>
   </div>
 
   <div style="display: flex; flex-direction: column; gap: 1.5rem;">
     {% for d in drafts %}
-    <div style="border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; background: var(--surface);">
+    <div id="draft-card-{{ d.id }}" style="border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; background: var(--surface);">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
         <div>
-          <span class="badge {% if d.platform == 'linkedin' %}badge-content{% elif d.platform == 'medium' %}badge-daily{% else %}badge-github{% endif %}">
-            {{ d.platform|upper }}
+          <span class="badge {% if d.platform == 'linkedin' %}badge-content{% elif d.platform == 'medium' %}badge-daily{% elif d.platform == 'image_prompt' %}badge-image{% else %}badge-github{% endif %}">
+            {% if d.platform == 'image_prompt' %}🎨 IMAGE PROMPT{% else %}{{ d.platform|upper }}{% endif %}
           </span>
           <span style="font-size: 0.8rem; color: var(--text-muted); margin-left: 0.5rem;">
             Type: <strong>{{ d.type }}</strong> &bull; Draft #{{ d.id }} &bull; {{ d.created_at.strftime('%Y-%m-%d %H:%M') }}
@@ -46,7 +47,11 @@
         </div>
       </form>
 
-      <form action="/drafts/delete/{{ d.id }}" method="POST" style="margin-top: 0.5rem; display: flex; justify-content: flex-end;" onsubmit="return confirm('Delete this draft?');">
+      <form action="/drafts/delete/{{ d.id }}" method="POST"
+            hx-post="/drafts/delete/{{ d.id }}"
+            hx-target="#draft-card-{{ d.id }}"
+            hx-swap="outerHTML swap:300ms"
+            style="margin-top: 0.5rem; display: flex; justify-content: flex-end;" onsubmit="return confirm('Delete this draft?');">
         <button type="submit" class="btn btn-danger" style="font-size: 0.75rem; padding: 0.3rem 0.6rem;">🗑️ Delete Draft</button>
       </form>
     </div>

@@ -164,9 +164,25 @@ class ContentAgent:
             source_ref=source_ref
         )
         db.add(d_x)
+
+        # Save Cover Image Prompt Draft if available
+        d_img = None
+        if image_prompt and len(image_prompt.strip()) > 5:
+            d_img = Draft(
+                platform="image_prompt",
+                type="original",
+                status="draft",
+                content=image_prompt.strip(),
+                source_ref=source_ref
+            )
+            db.add(d_img)
+
         db.commit()
 
-        logger.info(f"Saved original post drafts: LinkedIn #{d_li.id}, Medium #{d_med.id}, X #{d_x.id}")
+        log_msg = f"Saved original post drafts: LinkedIn #{d_li.id}, Medium #{d_med.id}, X #{d_x.id}"
+        if d_img:
+            log_msg += f", Image Prompt #{d_img.id}"
+        logger.info(log_msg)
 
         return {
             "agent": self.name,
@@ -175,7 +191,8 @@ class ContentAgent:
             "drafts": {
                 "linkedin_id": d_li.id,
                 "medium_id": d_med.id,
-                "x_id": d_x.id
+                "x_id": d_x.id,
+                "image_prompt_id": d_img.id if d_img else None
             },
             "linkedin_content": linkedin_text,
             "medium_content": medium_text,
@@ -235,10 +252,14 @@ class ContentAgent:
         return "\n".join(filtered_lines).strip()
 
     def _extract_section(self, text: str, header: str) -> str:
-        """Extracts content between ### headings."""
-        parts = text.split("###")
+        """Extracts content under markdown headings flexibly."""
+        header_clean = re.sub(r"^\d+\.\s*", "", header).strip().lower()
+        parts = re.split(r"(?:^|\n)#{2,4}\s*", text)
         for p in parts:
-            if p.strip().startswith(header):
-                lines = p.strip().split("\n")[1:]
-                return "\n".join(lines).strip()
+            lines = p.strip().split("\n")
+            if not lines:
+                continue
+            first_line = lines[0].strip().lower()
+            if header.lower() in first_line or header_clean in first_line:
+                return "\n".join(lines[1:]).strip()
         return ""

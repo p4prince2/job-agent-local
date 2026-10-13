@@ -120,6 +120,7 @@ main {
 .badge-github { background-color: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; }
 .badge-daily { background-color: #FEF3C7; color: #B45309; border: 1px solid #FDE68A; }
 .badge-automation { background-color: #FEE2E2; color: #B91C1C; border: 1px solid #FECACA; }
+.badge-image { background-color: #FDF2F8; color: #BE185D; border: 1px solid #FBCFE8; }
 
 /* Buttons & Inputs */
 input[type="text"], textarea, select {
@@ -217,3 +218,24 @@ pre {
   font-size: 0.85rem;
   font-family: monospace;
 }
+
+@media (max-width: 850px) {
+  header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 1rem;
+  }
+  .nav-links {
+    flex-wrap: wrap;
+    width: 100%;
+  }
+  .grid-2, .grid-3 {
+    grid-template-columns: 1fr;
+  }
+  main {
+    margin: 1rem auto;
+    padding: 0 1rem;
+  }
+}
+

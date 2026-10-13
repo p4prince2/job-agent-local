@@ -41,10 +41,13 @@
 
       <div style="display: flex; flex-direction: column; gap: 0.75rem;">
         {% for item in work_items %}
-        <div style="border: 1px solid var(--border); padding: 0.75rem; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; background: {% if item.status == 'done' %}#F8FAFC{% else %}var(--surface){% endif %};">
+        <div id="work-item-{{ item.id }}" style="border: 1px solid var(--border); padding: 0.75rem; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; background: {% if item.status == 'done' %}#F8FAFC{% else %}var(--surface){% endif %};">
           <div style="display: flex; align-items: center; gap: 0.75rem;">
-            <form action="/work/toggle/{{ item.id }}" method="POST" style="margin: 0;">
-              <input type="checkbox" onChange="this.form.submit()" {% if item.status == 'done' %}checked{% endif %} title="Toggle complete">
+            <form action="/work/toggle/{{ item.id }}" method="POST"
+                  hx-post="/work/toggle/{{ item.id }}"
+                  hx-target="#work-item-{{ item.id }}"
+                  hx-swap="outerHTML" style="margin: 0;">
+              <input type="checkbox" onChange="this.form.requestSubmit()" {% if item.status == 'done' %}checked{% endif %} title="Toggle complete">
             </form>
             <div>
               <div style="{% if item.status == 'done' %}text-decoration: line-through; color: var(--text-muted);{% else %}font-weight: 600;{% endif %}">
@@ -60,7 +63,11 @@
             <span class="badge {% if item.status == 'done' %}badge-content{% else %}badge-daily{% endif %}" style="font-size: 0.75rem;">
               {{ item.status }}
             </span>
-            <form action="/work/delete/{{ item.id }}" method="POST" style="margin: 0;" onsubmit="return confirm('Delete this task?');">
+            <form action="/work/delete/{{ item.id }}" method="POST"
+                  hx-post="/work/delete/{{ item.id }}"
+                  hx-target="#work-item-{{ item.id }}"
+                  hx-swap="outerHTML swap:300ms"
+                  style="margin: 0;" onsubmit="return confirm('Delete this task?');">
               <button type="submit" class="btn btn-secondary" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;" title="Delete task">🗑️</button>
             </form>
           </div>

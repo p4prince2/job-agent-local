@@ -139,6 +139,8 @@ Provide your structured architectural review and actionable recommendations.
             clean_w = w.strip("`'\",.?!")
             if clean_w in [".", ".."] or clean_w.startswith("./") or clean_w.startswith(".\\"):
                 return clean_w
+            if clean_w.lower() in [Path.cwd().name.lower(), "current", "here", "workspace"]:
+                return "."
             if Path(clean_w).exists() and clean_w.lower() not in ["the", "a", "in", "for", "to", "at", "and", "my"]:
                 return clean_w
             if "github.com/" in clean_w:

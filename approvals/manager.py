@@ -40,8 +40,8 @@ class ApprovalManager:
     def request_approval(
         action_type: str,
         description: str,
-        payload: Dict[str, Any],
-        requested_by_agent: str,
+        payload: Optional[Dict[str, Any]] = None,
+        requested_by_agent: str = "System",
         db: Optional[Session] = None
     ) -> Dict[str, Any]:
         """Creates a pending approval record and halts execution until user confirms."""

@@ -13,7 +13,7 @@
   {% if pending_approvals %}
   <div style="display: flex; flex-direction: column; gap: 1rem; margin-bottom: 2rem;">
     {% for app in pending_approvals %}
-    <div style="border: 2px solid #F87171; background: #FEF2F2; padding: 1.25rem; border-radius: 8px;">
+    <div id="approval-card-{{ app.id }}" style="border: 2px solid #F87171; background: #FEF2F2; padding: 1.25rem; border-radius: 8px;">
       <div style="display: flex; justify-content: space-between; align-items: flex-start;">
         <div>
           <span class="badge badge-automation" style="font-size: 0.85rem;">{{ app.action_type }}</span>
@@ -29,13 +29,19 @@
       </div>
 
       <div style="margin-top: 1rem; display: flex; gap: 0.75rem;">
-        <form action="/approvals/resolve/{{ app.id }}" method="POST">
+        <form action="/approvals/resolve/{{ app.id }}" method="POST"
+              hx-post="/approvals/resolve/{{ app.id }}"
+              hx-target="#approval-card-{{ app.id }}"
+              hx-swap="outerHTML">
           <input type="hidden" name="decision" value="approved">
           <button type="submit" class="btn btn-primary" style="background-color: #059669;">
             ✅ Approve Action
           </button>
         </form>
-        <form action="/approvals/resolve/{{ app.id }}" method="POST">
+        <form action="/approvals/resolve/{{ app.id }}" method="POST"
+              hx-post="/approvals/resolve/{{ app.id }}"
+              hx-target="#approval-card-{{ app.id }}"
+              hx-swap="outerHTML">
           <input type="hidden" name="decision" value="rejected">
           <button type="submit" class="btn btn-danger">
             ❌ Reject Action
