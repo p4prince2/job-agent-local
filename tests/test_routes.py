@@ -58,13 +58,15 @@ class TestFastAPIRoutes(unittest.TestCase):
         self.assertIn("pending_approvals", data)
 
     def test_htmx_work_toggle_and_delete(self):
-        create_resp = self.client.post("/work/create", data={"title": "Test HTMX Task", "project_tag": "ai_ml", "priority": "high"}, follow_redirects=False)
+        import uuid
+        unique_title = f"Test HTMX Task {uuid.uuid4().hex[:6]}"
+        create_resp = self.client.post("/work/create", data={"title": unique_title, "project_tag": "ai_ml", "priority": "high"}, follow_redirects=False)
         self.assertEqual(create_resp.status_code, 303)
 
         from db.session import SessionLocal
         from db.models import WorkItem
         db = SessionLocal()
-        item = db.query(WorkItem).filter(WorkItem.title == "Test HTMX Task").first()
+        item = db.query(WorkItem).filter(WorkItem.title == unique_title).first()
         self.assertIsNotNone(item)
         item_id = item.id
         db.close()

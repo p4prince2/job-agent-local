@@ -3,7 +3,28 @@
 import unittest
 from db.session import init_db, SessionLocal
 from db.models import Draft
+from llm.base import LLMProvider
 from agents.content_agent import ContentAgent
+
+
+class DummyLLM(LLMProvider):
+    def check_status(self):
+        return {"online": True, "provider": "dummy"}
+
+    def generate(self, messages, system_prompt=None, temperature=0.7, json_mode=False):
+        return """
+### 1. LinkedIn Post
+Fine-tuning vs RAG trade-offs in modern production systems.
+
+### 2. Expanded Medium Article
+An extensive analysis of parameter tuning against dynamic retrieval architectures.
+
+### 3. Condensed X (Twitter) Post
+RAG gives fresh context; fine-tuning instills domain style. Choose based on latency.
+
+### 4. Cover Image Generation Prompt
+Minimalist diagram showing vector retriever beside neural network weights.
+"""
 
 
 class TestContentAgent(unittest.TestCase):
@@ -13,7 +34,7 @@ class TestContentAgent(unittest.TestCase):
 
     def setUp(self):
         self.db = SessionLocal()
-        self.agent = ContentAgent()
+        self.agent = ContentAgent(llm=DummyLLM())
 
     def tearDown(self):
         self.db.close()

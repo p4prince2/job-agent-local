@@ -4,8 +4,18 @@
 
 {% block content %}
 <div class="card">
-  <h2>📋 Task History</h2>
-  <p style="color: var(--text-muted); font-size: 0.9rem;">Audit of all requests dispatched to the Prince AI Team.</p>
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+    <div>
+      <h2>📋 Task History</h2>
+      <p style="color: var(--text-muted); font-size: 0.9rem;">Audit of all requests dispatched to the Prince AI Team.</p>
+    </div>
+    <div style="display: flex; gap: 0.5rem;">
+      <a href="/tasks?status=all" class="btn btn-secondary" style="font-size: 0.8rem;">All</a>
+      <a href="/tasks?status=completed" class="btn btn-secondary" style="font-size: 0.8rem;">Completed</a>
+      <a href="/tasks?status=running" class="btn btn-secondary" style="font-size: 0.8rem;">Running</a>
+      <a href="/tasks?status=failed" class="btn btn-secondary" style="font-size: 0.8rem;">Failed</a>
+    </div>
+  </div>
 
   <table>
     <thead>

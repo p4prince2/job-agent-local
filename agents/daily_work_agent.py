@@ -128,23 +128,29 @@ Please provide:
             items.append({"title": f"Execute: {user_request[:60]}", "tag": tag, "priority": "medium"})
 
         saved = []
-        for it in items:
+        parent_id = None
+        for idx, it in enumerate(items):
             work_item = WorkItem(
                 title=it["title"],
                 project_tag=it["tag"],
                 priority=it["priority"],
+                parent_id=parent_id if idx > 0 else None,
                 status="todo",
                 created_at=datetime.now(timezone.utc)
             )
             db.add(work_item)
             db.commit()
             db.refresh(work_item)
+            if idx == 0 and len(items) > 1:
+                parent_id = work_item.id
             saved.append({
                 "id": work_item.id,
                 "title": work_item.title,
                 "project_tag": work_item.project_tag,
-                "priority": work_item.priority
+                "priority": work_item.priority,
+                "parent_id": work_item.parent_id
             })
-            logger.info(f"Saved WorkItem #{work_item.id}: '{work_item.title}' [{work_item.project_tag}]")
+            role_type = "Parent Goal" if work_item.parent_id is None else f"Subtask (Parent #{work_item.parent_id})"
+            logger.info(f"Saved WorkItem #{work_item.id} [{role_type}]: '{work_item.title}' [{work_item.project_tag}]")
 
         return saved

@@ -173,10 +173,16 @@ def system_status_endpoint(db: Session = Depends(get_db)):
 # 2. Tasks History
 # ----------------------------------------------------------------------
 @app.get("/tasks", response_class=HTMLResponse)
-def tasks_page(request: Request, db: Session = Depends(get_db)):
-    tasks = db.query(Task).order_by(Task.created_at.desc()).limit(50).all()
+def tasks_page(request: Request, status: Optional[str] = None, db: Session = Depends(get_db)):
+    query = db.query(Task)
+    if status and status != "all":
+        query = query.filter(Task.status == status.lower())
+    tasks = query.order_by(Task.created_at.desc()).limit(50).all()
     context = get_common_context(db, active_tab="tasks")
-    context.update({"tasks": tasks})
+    context.update({
+        "tasks": tasks,
+        "selected_status": status or "all"
+    })
     return templates.TemplateResponse(request=request, name="tasks.html", context=context)
 
 
@@ -272,12 +278,15 @@ def toggle_work_item(request: Request, item_id: int, db: Session = Depends(get_d
         db.refresh(item)
     if request.headers.get("HX-Request") and item:
         is_done = item.status == "done"
+        checked = "checked" if is_done else ""
         line_style = "text-decoration: line-through; color: var(--text-muted);" if is_done else "font-weight: 600;"
         bg_style = "#F8FAFC" if is_done else "var(--surface)"
         badge_cls = "badge-content" if is_done else "badge-daily"
-        checked = "checked" if is_done else ""
+        subtask_style = "margin-left: 1.5rem; border-left: 3px solid var(--primary);" if item.parent_id else ""
+        subtask_prefix = '<span style="color: var(--primary); font-size: 0.85rem; margin-right: 0.2rem;">↳</span>' if item.parent_id else ""
+        subtask_note = f'<span style="font-size: 0.7rem; color: var(--primary); margin-left: 0.4rem;">[Subtask of #{item.parent_id}]</span>' if item.parent_id else ""
         return HTMLResponse(f"""
-        <div id="work-item-{item.id}" style="border: 1px solid var(--border); padding: 0.75rem; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; background: {bg_style};">
+        <div id="work-item-{item.id}" style="border: 1px solid var(--border); padding: 0.75rem; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; background: {bg_style}; {subtask_style}">
           <div style="display: flex; align-items: center; gap: 0.75rem;">
             <form action="/work/toggle/{item.id}" method="POST"
                   hx-post="/work/toggle/{item.id}"
@@ -287,12 +296,13 @@ def toggle_work_item(request: Request, item_id: int, db: Session = Depends(get_d
             </form>
             <div>
               <div style="{line_style}">
-                {item.title}
+                {subtask_prefix}{item.title}
               </div>
               <span class="badge badge-daily" style="font-size: 0.7rem; padding: 0.1rem 0.4rem;">
                 {item.project_tag}
               </span>
               <span style="font-size: 0.75rem; color: var(--text-muted); margin-left: 0.4rem;">Priority: {item.priority}</span>
+              {subtask_note}
             </div>
           </div>
           <div style="display: flex; align-items: center; gap: 0.5rem;">
@@ -338,13 +348,17 @@ def github_page(request: Request, db: Session = Depends(get_db)):
 # 6. Approval Queue & Safety Center
 # ----------------------------------------------------------------------
 @app.get("/approvals", response_class=HTMLResponse)
-def approvals_page(request: Request, db: Session = Depends(get_db)):
+def approvals_page(request: Request, status: Optional[str] = None, db: Session = Depends(get_db)):
     pending = ApprovalManager.get_pending_approvals(db=db)
-    all_apps = ApprovalManager.get_all_approvals(limit=50, db=db)
+    query = db.query(Approval)
+    if status and status != "all":
+        query = query.filter(Approval.status == status.lower())
+    all_apps = query.order_by(Approval.created_at.desc()).limit(50).all()
     context = get_common_context(db, active_tab="approvals")
     context.update({
         "pending_approvals": pending,
-        "all_approvals": all_apps
+        "all_approvals": all_apps,
+        "selected_status": status or "all"
     })
     return templates.TemplateResponse(request=request, name="approvals.html", context=context)
 
