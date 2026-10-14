@@ -18,6 +18,24 @@
   --shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
 }
 
+[data-theme="dark"] {
+  --primary: #6366F1;
+  --primary-hover: #4F46E5;
+  --bg: #0B0F19;
+  --surface: #1E293B;
+  --text: #F8FAFC;
+  --text-muted: #94A3B8;
+  --border: #334155;
+  --border-strong: #475569;
+  --success-bg: #064E3B;
+  --success-text: #A7F3D0;
+  --warning-bg: #78350F;
+  --warning-text: #FDE68A;
+  --danger-bg: #7F1D1D;
+  --danger-text: #FECACA;
+  --shadow: 0 1px 3px rgba(0,0,0,0.5);
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -126,6 +144,8 @@ main {
 input[type="text"], textarea, select {
   width: 100%;
   padding: 0.75rem;
+  background-color: var(--surface);
+  color: var(--text);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius);
   font-size: 0.95rem;
@@ -170,12 +190,19 @@ button, .btn {
 }
 
 .btn-secondary {
-  background-color: #E5E7EB;
+  background-color: var(--border);
   color: var(--text);
 }
 .btn-secondary:hover {
-  background-color: #D1D5DB;
+  background-color: var(--border-strong);
 }
+
+[data-theme="dark"] .badge-supervisor { background-color: #2E1065; color: #C4B5FD; border-color: #4C1D95; }
+[data-theme="dark"] .badge-content { background-color: #064E3B; color: #6EE7B7; border-color: #047857; }
+[data-theme="dark"] .badge-github { background-color: #1E3A8A; color: #93C5FD; border-color: #1D4ED8; }
+[data-theme="dark"] .badge-daily { background-color: #78350F; color: #FDE68A; border-color: #B45309; }
+[data-theme="dark"] .badge-automation { background-color: #7F1D1D; color: #FCA5A5; border-color: #991B1B; }
+[data-theme="dark"] .badge-image { background-color: #831843; color: #F9A8D4; border-color: #BE185D; }
 
 /* Tables */
 table {

@@ -30,6 +30,8 @@
           </span>
           <span style="font-size: 0.8rem; color: var(--text-muted); margin-left: 0.5rem;">
             Type: <strong>{{ d.type }}</strong> &bull; Draft #{{ d.id }} &bull; {{ d.created_at.strftime('%Y-%m-%d %H:%M') }}
+            &bull; <span style="color: var(--text-main); font-weight: 500;">{{ d.content|length }} chars</span>
+            &bull; <span style="color: var(--text-main); font-weight: 500;">{{ d.content.split()|length }} words</span>
           </span>
           {% if d.source_ref %}
           <div style="margin-top: 0.35rem; font-size: 0.8rem; color: var(--text-muted);">
@@ -49,6 +51,9 @@
         <div style="margin-top: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
           <button type="submit" class="btn btn-primary" style="font-size: 0.85rem;">💾 Save Edits</button>
           <div style="display: flex; gap: 0.5rem;">
+            <a href="/drafts/export/{{ d.id }}" class="btn btn-secondary" style="font-size: 0.85rem; text-decoration: none;">
+              📥 Export .md
+            </a>
             <button type="button" class="btn btn-secondary" style="font-size: 0.85rem;" onclick="navigator.clipboard.writeText(this.form.content.value); alert('Copied to clipboard!');">
               📋 Copy
             </button>

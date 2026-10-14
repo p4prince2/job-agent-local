@@ -91,6 +91,43 @@ class TestFastAPIRoutes(unittest.TestCase):
         self.assertEqual(resolve_resp.status_code, 200)
         self.assertIn("approved", resolve_resp.text.lower())
 
+    def test_export_draft(self):
+        from db.session import SessionLocal
+        from db.models import Draft
+        db = SessionLocal()
+        d = Draft(platform="linkedin", type="original", status="draft", content="Test export content")
+        db.add(d)
+        db.commit()
+        db.refresh(d)
+        d_id = d.id
+        db.close()
+
+        resp = self.client.get(f"/drafts/export/{d_id}")
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("Test export content", resp.text)
+        self.assertIn("attachment", resp.headers.get("content-disposition", ""))
+
+    def test_github_audit_and_export(self):
+        audit_resp = self.client.post("/github/audit", data={"repo": "."}, follow_redirects=False)
+        self.assertEqual(audit_resp.status_code, 303)
+
+        from db.session import SessionLocal
+        from db.models import GitHubReview
+        db = SessionLocal()
+        latest_rev = db.query(GitHubReview).order_by(GitHubReview.created_at.desc()).first()
+        self.assertIsNotNone(latest_rev)
+        rev_id = latest_rev.id
+        db.close()
+
+        export_resp = self.client.get(f"/github/export/{rev_id}")
+        self.assertEqual(export_resp.status_code, 200)
+        self.assertIn("GitHub Audit Review", export_resp.text)
+
+    def test_logs_filtering(self):
+        resp = self.client.get("/logs?level=info&q=test")
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("Agent Activity Logs", resp.text)
+
 
 if __name__ == "__main__":
     unittest.main()

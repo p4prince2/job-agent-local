@@ -11,14 +11,34 @@
         Mirrored audit trail from rotating JSON log file directly into SQLite (§14).
       </p>
     </div>
-    <div style="display: flex; gap: 0.5rem;">
-      <a href="/logs?agent=all" class="btn btn-secondary" style="font-size: 0.8rem;">All</a>
-      <a href="/logs?agent=SupervisorAgent" class="btn btn-secondary" style="font-size: 0.8rem;">Supervisor</a>
-      <a href="/logs?agent=ContentAgent" class="btn btn-secondary" style="font-size: 0.8rem;">Content</a>
-      <a href="/logs?agent=GitHubAgent" class="btn btn-secondary" style="font-size: 0.8rem;">GitHub</a>
-      <a href="/logs?agent=DailyWorkAgent" class="btn btn-secondary" style="font-size: 0.8rem;">Daily Work</a>
-      <a href="/logs?agent=ApprovalManager" class="btn btn-secondary" style="font-size: 0.8rem;">Approvals</a>
+    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+      <a href="/logs?agent=all{% if selected_level != 'all' %}&level={{ selected_level }}{% endif %}" class="btn btn-secondary" style="font-size: 0.8rem; {% if selected_agent == 'all' %}background: var(--primary); color: white;{% endif %}">All Agents</a>
+      <a href="/logs?agent=SupervisorAgent{% if selected_level != 'all' %}&level={{ selected_level }}{% endif %}" class="btn btn-secondary" style="font-size: 0.8rem; {% if selected_agent == 'SupervisorAgent' %}background: var(--primary); color: white;{% endif %}">Supervisor</a>
+      <a href="/logs?agent=ContentAgent{% if selected_level != 'all' %}&level={{ selected_level }}{% endif %}" class="btn btn-secondary" style="font-size: 0.8rem; {% if selected_agent == 'ContentAgent' %}background: var(--primary); color: white;{% endif %}">Content</a>
+      <a href="/logs?agent=GitHubAgent{% if selected_level != 'all' %}&level={{ selected_level }}{% endif %}" class="btn btn-secondary" style="font-size: 0.8rem; {% if selected_agent == 'GitHubAgent' %}background: var(--primary); color: white;{% endif %}">GitHub</a>
+      <a href="/logs?agent=DailyWorkAgent{% if selected_level != 'all' %}&level={{ selected_level }}{% endif %}" class="btn btn-secondary" style="font-size: 0.8rem; {% if selected_agent == 'DailyWorkAgent' %}background: var(--primary); color: white;{% endif %}">Daily Work</a>
+      <a href="/logs?agent=ApprovalManager{% if selected_level != 'all' %}&level={{ selected_level }}{% endif %}" class="btn btn-secondary" style="font-size: 0.8rem; {% if selected_agent == 'ApprovalManager' %}background: var(--primary); color: white;{% endif %}">Approvals</a>
     </div>
+  </div>
+
+  <div style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap;">
+    <div style="display: flex; gap: 0.4rem; align-items: center;">
+      <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">LEVEL:</span>
+      <a href="/logs?level=all{% if selected_agent != 'all' %}&agent={{ selected_agent }}{% endif %}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.2rem 0.6rem; {% if selected_level == 'all' %}background: var(--primary); color: white;{% endif %}">ALL</a>
+      <a href="/logs?level=info{% if selected_agent != 'all' %}&agent={{ selected_agent }}{% endif %}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.2rem 0.6rem; {% if selected_level == 'info' %}background: var(--primary); color: white;{% endif %}">INFO</a>
+      <a href="/logs?level=warning{% if selected_agent != 'all' %}&agent={{ selected_agent }}{% endif %}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.2rem 0.6rem; {% if selected_level == 'warning' %}background: var(--primary); color: white;{% endif %}">WARNING</a>
+      <a href="/logs?level=error{% if selected_agent != 'all' %}&agent={{ selected_agent }}{% endif %}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.2rem 0.6rem; {% if selected_level == 'error' %}background: var(--primary); color: white;{% endif %}">ERROR</a>
+    </div>
+
+    <form action="/logs" method="GET" style="display: flex; gap: 0.5rem; margin: 0;">
+      <input type="hidden" name="agent" value="{{ selected_agent }}">
+      <input type="hidden" name="level" value="{{ selected_level }}">
+      <input type="text" name="q" value="{{ search_query }}" placeholder="Filter log text..." style="width: 220px; padding: 0.35rem 0.6rem; font-size: 0.85rem; margin: 0;">
+      <button type="submit" class="btn btn-primary" style="font-size: 0.8rem; padding: 0.35rem 0.75rem;">Search</button>
+      {% if search_query %}
+      <a href="/logs?agent={{ selected_agent }}&level={{ selected_level }}" class="btn btn-secondary" style="font-size: 0.8rem; padding: 0.35rem 0.6rem; text-decoration: none;">Clear</a>
+      {% endif %}
+    </form>
   </div>
 
   <table>

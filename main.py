@@ -8,7 +8,7 @@ in-process APScheduler reminders, and safety approval management.
 from typing import Optional
 from datetime import datetime, timezone
 from fastapi import FastAPI, Request, Form, Depends, HTTPException, BackgroundTasks
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
@@ -228,6 +228,23 @@ def delete_draft_endpoint(request: Request, draft_id: int, db: Session = Depends
     return RedirectResponse(url="/drafts", status_code=303)
 
 
+@app.get("/drafts/export/{draft_id}")
+def export_draft_endpoint(draft_id: int, db: Session = Depends(get_db)):
+    draft = db.query(Draft).filter(Draft.id == draft_id).first()
+    if not draft:
+        raise HTTPException(status_code=404, detail="Draft not found")
+    filename = f"draft_{draft.platform}_{draft.id}.md"
+    body = f"# Prince AI Team Draft #{draft.id} ({draft.platform.upper()})\n\n"
+    if draft.source_ref:
+        body += f"> Source: {draft.source_ref}\n\n"
+    body += draft.content
+    return Response(
+        content=body,
+        media_type="text/markdown; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )
+
+
 # ----------------------------------------------------------------------
 # 4. Daily Work & Reminders (CRUD)
 # ----------------------------------------------------------------------
@@ -344,6 +361,33 @@ def github_page(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse(request=request, name="github.html", context=context)
 
 
+@app.post("/github/audit")
+def audit_github_repo_endpoint(
+    repo: str = Form("."),
+    db: Session = Depends(get_db)
+):
+    target = repo.strip() or "."
+    default_supervisor.github_agent.execute(f"Review repository {target}", db=db)
+    return RedirectResponse(url="/github", status_code=303)
+
+
+@app.get("/github/export/{review_id}")
+def export_github_review_endpoint(review_id: int, db: Session = Depends(get_db)):
+    rev = db.query(GitHubReview).filter(GitHubReview.id == review_id).first()
+    if not rev:
+        raise HTTPException(status_code=404, detail="Review not found")
+    filename = f"github_review_{rev.id}.md"
+    body = f"# GitHub Audit Review #{rev.id}: {rev.repo}\n\n"
+    body += f"- **Date:** {rev.created_at.strftime('%Y-%m-%d %H:%M:%S UTC')}\n\n"
+    body += f"## Architectural & Code Quality Review\n\n{rev.human_summary}\n\n"
+    body += f"## Raw Telemetry & Manifests\n\n```json\n{rev.summary_json}\n```\n"
+    return Response(
+        content=body,
+        media_type="text/markdown; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )
+
+
 # ----------------------------------------------------------------------
 # 6. Approval Queue & Safety Center
 # ----------------------------------------------------------------------
@@ -389,16 +433,28 @@ def resolve_approval_endpoint(
 # 7. Logs Viewer
 # ----------------------------------------------------------------------
 @app.get("/logs", response_class=HTMLResponse)
-def logs_page(request: Request, agent: Optional[str] = None, db: Session = Depends(get_db)):
+def logs_page(
+    request: Request,
+    agent: Optional[str] = None,
+    level: Optional[str] = None,
+    q: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
     query = db.query(Log)
     if agent and agent != "all":
         query = query.filter(Log.agent_name == agent)
-    logs = query.order_by(Log.created_at.desc()).limit(100).all()
+    if level and level != "all":
+        query = query.filter(Log.level == level.upper())
+    if q and q.strip():
+        query = query.filter(Log.message.ilike(f"%{q.strip()}%"))
+    logs = query.order_by(Log.created_at.desc()).limit(150).all()
 
     context = get_common_context(db, active_tab="logs")
     context.update({
         "logs": logs,
-        "selected_agent": agent or "all"
+        "selected_agent": agent or "all",
+        "selected_level": level or "all",
+        "search_query": q or ""
     })
     return templates.TemplateResponse(request=request, name="logs.html", context=context)
 
