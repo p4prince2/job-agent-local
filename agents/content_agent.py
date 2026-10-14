@@ -102,7 +102,26 @@ class ContentAgent:
 
         try:
             task_lower = task.lower()
+            is_url_only = bool(re.match(r"^https?://\S+$", task.strip()))
             is_reply = any(k in task_lower for k in ["reply", "comment", "respond", "reaction to post"])
+
+            if is_url_only and context and ("x.com" in context.get("source_url", "") or "twitter.com" in context.get("source_url", "")):
+                # If an X post URL was given directly, generate both ranked replies AND in-depth analysis drafts!
+                reply_result = self._execute_reply_pipeline(task, context, db)
+                target_snip = context.get('target_post', task)[:120]
+                orig_result = self._execute_original_pipeline(f"Technical analysis of announcement: {target_snip}", context, db)
+                return {
+                    "agent": self.name,
+                    "pipeline": "compound_social",
+                    "status": "success",
+                    "reply_draft_id": reply_result.get("draft_id"),
+                    "original_drafts": orig_result.get("drafts"),
+                    "replies": reply_result.get("replies"),
+                    "linkedin_content": orig_result.get("linkedin_content"),
+                    "medium_content": orig_result.get("medium_content"),
+                    "x_content": orig_result.get("x_content"),
+                    "cover_image_prompt": orig_result.get("cover_image_prompt")
+                }
 
             if is_reply:
                 return self._execute_reply_pipeline(task, context, db)
@@ -116,6 +135,10 @@ class ContentAgent:
         """Generates LinkedIn, Medium, X, and Cover Image outputs and saves to drafts."""
         prompt = f"Topic / Task: {task}\n"
         if context:
+            if "target_post" in context:
+                prompt += f"\nReferenced Announcement / Source Post:\n{context['target_post']}\n"
+            if "source_url" in context:
+                prompt += f"\nSource URL: {context['source_url']}\n"
             if "github_summary" in context:
                 prompt += f"\nGitHub Repository Context:\n{context['github_summary']}\n"
             if "telemetry" in context:
@@ -133,7 +156,7 @@ class ContentAgent:
         x_text = self._extract_section(response_text, "3. Condensed X (Twitter) Post") or response_text[:280]
         image_prompt = self._extract_section(response_text, "4. Cover Image Generation Prompt")
 
-        source_ref = context.get("repo") if context else None
+        source_ref = (context.get("source_url") or context.get("repo")) if context else None
 
         # Save LinkedIn Draft
         d_li = Draft(
@@ -206,6 +229,8 @@ class ContentAgent:
         prompt = f"Target Post / Context:\n{task}\n"
         if context and context.get("target_post"):
             prompt += f"Original Post Text:\n{context['target_post']}\n"
+        if context and context.get("source_url"):
+            prompt += f"Source URL: {context['source_url']}\n"
 
         raw_response = self.llm.generate(
             messages=[{"role": "user", "content": prompt}],
@@ -217,13 +242,16 @@ class ContentAgent:
         cleaned_response = self._apply_reply_quality_gate(raw_response)
 
         # Platform check
-        platform = "x" if ("tweet" in task.lower() or " x " in task.lower()) else "linkedin"
+        source_url = (context.get("source_url") or "").lower() if context else ""
+        platform = "x" if ("tweet" in task.lower() or " x " in task.lower() or "x.com" in source_url or "twitter.com" in source_url) else "linkedin"
+        source_ref = context.get("source_url") if context else None
 
         d_reply = Draft(
             platform=platform,
             type="reply",
             status="draft",
-            content=cleaned_response
+            content=cleaned_response,
+            source_ref=source_ref
         )
         db.add(d_reply)
         db.commit()

@@ -18,6 +18,7 @@ from agents.content_agent import ContentAgent
 from agents.github_agent import GitHubAgent
 from agents.daily_work_agent import DailyWorkAgent
 from agents.automation_agent import AutomationAgent
+from tools.web_tools import default_web_tools
 from llm import default_provider
 from llm.base import LLMProvider
 from logging_utils.logger import get_logger
@@ -67,6 +68,7 @@ class SupervisorAgent:
         self.github_agent = GitHubAgent(self.llm)
         self.daily_work_agent = DailyWorkAgent(self.llm)
         self.automation_agent = AutomationAgent()
+        self.web_tools = default_web_tools
 
     def shortlist_agents(self, prompt: str) -> List[str]:
         """Fast keyword/intent pass to shortlist candidate agents (SPEC.md §2)."""
@@ -81,8 +83,11 @@ class SupervisorAgent:
         if any(k in p_lower for k in ["github", "repo", "repository", "codebase", "branch", "pull request", "p4prince2"]):
             candidates.append("GitHubAgent")
 
-        # Check Content cues
-        if any(k in p_lower for k in ["linkedin", "medium", "post", "tweet", " x ", "twitter", "draft", "article", "reply", "comment"]):
+        # Check Content cues (social media, posts, articles, and external URLs)
+        if any(k in p_lower for k in [
+            "linkedin", "medium", "post", "tweet", " x ", "twitter", "x.com", "draft",
+            "article", "reply", "comment", "silicon", "announcement"
+        ]) or ("http://" in p_lower or "https://" in p_lower):
             candidates.append("ContentAgent")
 
         # Check Daily Work cues
@@ -150,6 +155,17 @@ class SupervisorAgent:
 
             step_runs = []
             shared_context: Dict[str, Any] = {}
+
+            # Pre-flight: Ingest external URLs if present in prompt
+            extracted_urls = self.web_tools.extract_urls(raw_input)
+            if extracted_urls:
+                primary_url = extracted_urls[0]
+                web_data = self.web_tools.fetch_url_content(primary_url)
+                if web_data.get("success"):
+                    logger.info(f"Ingested external URL content from {primary_url} ({web_data.get('platform')})")
+                    shared_context["source_url"] = primary_url
+                    shared_context["web_context"] = web_data
+                    shared_context["target_post"] = web_data.get("text_content")
 
             # 3. Execute agents in sequence
             for agent_name in pipeline:

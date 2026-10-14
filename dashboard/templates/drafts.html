@@ -31,6 +31,15 @@
           <span style="font-size: 0.8rem; color: var(--text-muted); margin-left: 0.5rem;">
             Type: <strong>{{ d.type }}</strong> &bull; Draft #{{ d.id }} &bull; {{ d.created_at.strftime('%Y-%m-%d %H:%M') }}
           </span>
+          {% if d.source_ref %}
+          <div style="margin-top: 0.35rem; font-size: 0.8rem; color: var(--text-muted);">
+            {% if d.source_ref.startswith('http') %}
+            🔗 <strong style="color: var(--text-main);">Source:</strong> <a href="{{ d.source_ref }}" target="_blank" rel="noopener noreferrer" style="color: var(--primary); text-decoration: underline; word-break: break-all;">{{ d.source_ref }}</a>
+            {% else %}
+            📁 <strong style="color: var(--text-main);">Source:</strong> <code style="background: var(--bg); padding: 0.1rem 0.3rem; border-radius: 4px;">{{ d.source_ref }}</code>
+            {% endif %}
+          </div>
+          {% endif %}
         </div>
         <span class="badge badge-supervisor">{{ d.status }}</span>
       </div>

@@ -26,7 +26,7 @@
             hx-swap="innerHTML"
             hx-indicator="#dispatch-spinner">
         <label for="prompt" style="font-weight: 600; font-size: 0.9rem;">What would you like the team to do?</label>
-        <textarea id="prompt" name="prompt" rows="4" placeholder="e.g. Review my GitHub project prince-ai-team and write a LinkedIn post about the improvements." required></textarea>
+        <textarea id="prompt" name="prompt" rows="4" placeholder="e.g. Paste an X/Twitter post URL (https://x.com/...), review a GitHub repo, or plan daily work goals." required></textarea>
         
         <div style="margin-top: 1rem; display: flex; justify-content: space-between; align-items: center;">
           <div style="font-size: 0.8rem; color: var(--text-muted);">
@@ -42,6 +42,10 @@
       <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border);">
         <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">QUICK TEMPLATES:</span>
         <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.5rem;">
+          <button class="btn btn-secondary" style="font-size: 0.8rem; justify-content: flex-start; text-align: left;"
+            onclick="document.getElementById('prompt').value = 'https://x.com/satyanadella/status/2109631106404487523?s=20';">
+            🐦 Ingest X / Tech Post &amp; Draft High-Signal Replies + Analysis
+          </button>
           <button class="btn btn-secondary" style="font-size: 0.8rem; justify-content: flex-start; text-align: left;"
             onclick="document.getElementById('prompt').value = 'Review my GitHub repo prince-ai-team and create a LinkedIn post about the architecture.';">
             🐙 Review GitHub Repo &amp; Draft LinkedIn Post
