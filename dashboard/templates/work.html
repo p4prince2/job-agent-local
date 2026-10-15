@@ -90,15 +90,40 @@
         Notice: Per SPEC.md §9, Phase 1 MVP reminders are in-app only and surface when you open this dashboard. OS toast alerts are Phase 2.
       </p>
 
+      <form action="/work/reminders/create" method="POST" style="background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 0.85rem; margin-bottom: 1.25rem;">
+        <div style="font-weight: 600; font-size: 0.85rem; margin-bottom: 0.4rem;">🔔 Schedule Reminder</div>
+        <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+          <select name="work_item_id" style="margin-top: 0; font-size: 0.85rem;">
+            <option value="">-- General Check-in --</option>
+            {% for item in work_items %}
+            <option value="{{ item.id }}">#{{ item.id }}: {{ item.title[:35] }}</option>
+            {% endfor %}
+          </select>
+          <div style="display: flex; gap: 0.5rem;">
+            <input type="text" name="remind_at" placeholder="YYYY-MM-DD HH:MM (e.g. 2026-10-15 14:00)" required style="margin-top: 0; font-size: 0.85rem; flex: 1;">
+            <button type="submit" class="btn btn-primary" style="font-size: 0.8rem; padding: 0.35rem 0.75rem; white-space: nowrap;">Set Alert</button>
+          </div>
+        </div>
+      </form>
+
       {% for rem in reminders %}
-      <div style="background: {% if rem.fired %}#F3F4F6{% else %}#FFFBEB{% endif %}; border: 1px solid {% if rem.fired %}#D1D5DB{% else %}#FDE68A{% endif %}; padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
+      <div id="reminder-card-{{ rem.id }}" style="background: {% if rem.fired %}#F3F4F6{% else %}#FFFBEB{% endif %}; border: 1px solid {% if rem.fired %}#D1D5DB{% else %}#FDE68A{% endif %}; padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
         <div>
           <strong>🔔 Scheduled Check-in</strong>
           <div style="font-size: 0.85rem; color: {% if rem.fired %}#4B5563{% else %}#92400E{% endif %};">Remind at: <code>{{ rem.remind_at }}</code></div>
         </div>
-        <span class="badge {% if rem.fired %}badge-supervisor{% else %}badge-daily{% endif %}">
-          {% if rem.fired %}Triggered{% else %}Active{% endif %}
-        </span>
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <span class="badge {% if rem.fired %}badge-supervisor{% else %}badge-daily{% endif %}">
+            {% if rem.fired %}Triggered{% else %}Active{% endif %}
+          </span>
+          <form action="/work/reminders/delete/{{ rem.id }}" method="POST"
+                hx-post="/work/reminders/delete/{{ rem.id }}"
+                hx-target="#reminder-card-{{ rem.id }}"
+                hx-swap="outerHTML swap:300ms"
+                style="margin: 0;" onsubmit="return confirm('Delete this reminder?');">
+            <button type="submit" class="btn btn-secondary" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;" title="Delete reminder">🗑️</button>
+          </form>
+        </div>
       </div>
       {% else %}
       <div style="text-align: center; color: var(--text-muted); padding: 2rem;">No active reminders scheduled.</div>

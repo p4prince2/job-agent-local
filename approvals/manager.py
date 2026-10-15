@@ -117,6 +117,17 @@ class ApprovalManager:
 
             approval.status = decision
             approval.resolved_at = datetime.now(timezone.utc)
+
+            # Cascade resolution to linked domain objects
+            if approval.action_type == "publish_content":
+                payload = approval.get_payload()
+                draft_id = payload.get("draft_id")
+                if draft_id:
+                    from db.models import Draft
+                    draft = db.query(Draft).filter(Draft.id == draft_id).first()
+                    if draft:
+                        draft.status = "approved" if decision == "approved" else "rejected"
+
             db.commit()
 
             logger.info(f"Approval request #{approval_id} ({approval.action_type}) marked as {decision.upper()}")

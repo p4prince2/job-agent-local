@@ -128,6 +128,73 @@ class TestFastAPIRoutes(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertIn("Agent Activity Logs", resp.text)
 
+    def test_draft_approval_lifecycle(self):
+        from db.session import SessionLocal
+        from db.models import Draft, Approval
+        db = SessionLocal()
+        draft = Draft(platform="x", type="repurpose", status="draft", content="Thread on Distributed Training")
+        db.add(draft)
+        db.commit()
+        db.refresh(draft)
+        d_id = draft.id
+        db.close()
+
+        # 1. Request approval via endpoint
+        req_resp = self.client.post(f"/drafts/request-approval/{d_id}", follow_redirects=False)
+        self.assertEqual(req_resp.status_code, 303)
+
+        db = SessionLocal()
+        approval = db.query(Approval).filter(
+            Approval.action_type == "publish_content",
+            Approval.status == "pending"
+        ).order_by(Approval.id.desc()).first()
+        self.assertIsNotNone(approval)
+        app_id = approval.id
+        self.assertEqual(approval.get_payload().get("draft_id"), d_id)
+        db.close()
+
+        # 2. Resolve approval as approved, triggering cascade to Draft
+        res_resp = self.client.post(f"/approvals/resolve/{app_id}", data={"decision": "approved"}, headers={"HX-Request": "true"})
+        self.assertEqual(res_resp.status_code, 200)
+
+        db = SessionLocal()
+        draft_after_resolve = db.query(Draft).filter(Draft.id == d_id).first()
+        self.assertEqual(draft_after_resolve.status, "approved")
+        db.close()
+
+        # 3. Mark draft as posted manually
+        posted_resp = self.client.post(f"/drafts/mark-posted/{d_id}", follow_redirects=False)
+        self.assertEqual(posted_resp.status_code, 303)
+
+        db = SessionLocal()
+        draft_final = db.query(Draft).filter(Draft.id == d_id).first()
+        self.assertEqual(draft_final.status, "posted_manually")
+        db.close()
+
+    def test_reminder_lifecycle(self):
+        from db.session import SessionLocal
+        from db.models import Reminder
+        # Create reminder
+        create_resp = self.client.post("/work/reminders/create", data={"remind_at": "2026-10-15 15:00"}, follow_redirects=False)
+        self.assertEqual(create_resp.status_code, 303)
+
+        db = SessionLocal()
+        rem = db.query(Reminder).filter(Reminder.remind_at == "2026-10-15 15:00").order_by(Reminder.id.desc()).first()
+        self.assertIsNotNone(rem)
+        rem_id = rem.id
+        db.close()
+
+        # Delete reminder via HTMX
+        del_resp = self.client.post(f"/work/reminders/delete/{rem_id}", headers={"HX-Request": "true"})
+        self.assertEqual(del_resp.status_code, 200)
+        self.assertEqual(del_resp.text, "")
+
+        db = SessionLocal()
+        rem_after = db.query(Reminder).filter(Reminder.id == rem_id).first()
+        self.assertIsNone(rem_after)
+        db.close()
+
 
 if __name__ == "__main__":
     unittest.main()
+

@@ -245,6 +245,30 @@ def export_draft_endpoint(draft_id: int, db: Session = Depends(get_db)):
     )
 
 
+@app.post("/drafts/request-approval/{draft_id}")
+def request_draft_approval_endpoint(draft_id: int, db: Session = Depends(get_db)):
+    draft = db.query(Draft).filter(Draft.id == draft_id).first()
+    if not draft:
+        raise HTTPException(status_code=404, detail="Draft not found")
+    ApprovalManager.request_approval(
+        action_type="publish_content",
+        description=f"Publish {draft.platform.upper()} draft #{draft.id}: '{draft.content[:80]}...'",
+        payload={"draft_id": draft.id, "platform": draft.platform, "snippet": draft.content[:150]},
+        requested_by_agent="ContentAgent",
+        db=db
+    )
+    return RedirectResponse(url="/drafts", status_code=303)
+
+
+@app.post("/drafts/mark-posted/{draft_id}")
+def mark_draft_posted_endpoint(draft_id: int, db: Session = Depends(get_db)):
+    draft = db.query(Draft).filter(Draft.id == draft_id).first()
+    if draft:
+        draft.status = "posted_manually"
+        db.commit()
+    return RedirectResponse(url="/drafts", status_code=303)
+
+
 # ----------------------------------------------------------------------
 # 4. Daily Work & Reminders (CRUD)
 # ----------------------------------------------------------------------
@@ -344,6 +368,35 @@ def delete_work_item_endpoint(request: Request, item_id: int, db: Session = Depe
     item = db.query(WorkItem).filter(WorkItem.id == item_id).first()
     if item:
         db.delete(item)
+        db.commit()
+    if request.headers.get("HX-Request"):
+        return HTMLResponse("")
+    return RedirectResponse(url="/work", status_code=303)
+
+
+@app.post("/work/reminders/create")
+def create_reminder_endpoint(
+    work_item_id: Optional[str] = Form(None),
+    remind_at: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    item_id = int(work_item_id) if work_item_id and work_item_id.isdigit() else None
+    rem = Reminder(
+        work_item_id=item_id,
+        remind_at=remind_at.strip(),
+        fired=False,
+        created_at=datetime.now(timezone.utc)
+    )
+    db.add(rem)
+    db.commit()
+    return RedirectResponse(url="/work", status_code=303)
+
+
+@app.post("/work/reminders/delete/{reminder_id}")
+def delete_reminder_endpoint(request: Request, reminder_id: int, db: Session = Depends(get_db)):
+    rem = db.query(Reminder).filter(Reminder.id == reminder_id).first()
+    if rem:
+        db.delete(rem)
         db.commit()
     if request.headers.get("HX-Request"):
         return HTMLResponse("")
