@@ -9,46 +9,96 @@
       <h2>📋 Task History</h2>
       <p style="color: var(--text-muted); font-size: 0.9rem;">Audit of all requests dispatched to the Prince AI Team.</p>
     </div>
-    <div style="display: flex; gap: 0.5rem;">
-      <a href="/tasks?status=all" class="btn btn-secondary" style="font-size: 0.8rem;">All</a>
-      <a href="/tasks?status=completed" class="btn btn-secondary" style="font-size: 0.8rem;">Completed</a>
-      <a href="/tasks?status=running" class="btn btn-secondary" style="font-size: 0.8rem;">Running</a>
-      <a href="/tasks?status=failed" class="btn btn-secondary" style="font-size: 0.8rem;">Failed</a>
+    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+      <a href="/tasks?status=all" class="btn btn-secondary" style="font-size: 0.8rem; {% if selected_status == 'all' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">All</a>
+      <a href="/tasks?status=completed" class="btn btn-secondary" style="font-size: 0.8rem; {% if selected_status == 'completed' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">Completed</a>
+      <a href="/tasks?status=running" class="btn btn-secondary" style="font-size: 0.8rem; {% if selected_status == 'running' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">Running</a>
+      <a href="/tasks?status=failed" class="btn btn-secondary" style="font-size: 0.8rem; {% if selected_status == 'failed' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">Failed</a>
     </div>
   </div>
 
   <table>
     <thead>
       <tr>
-        <th style="width: 60px;">ID</th>
-        <th>User Request</th>
+        <th style="width: 55px;">ID</th>
+        <th>User Request &amp; Trace Details</th>
         <th>Routed Pipeline</th>
         <th>Status</th>
         <th>Created</th>
+        <th style="width: 170px; text-align: right;">Actions</th>
       </tr>
     </thead>
     <tbody>
       {% for t in tasks %}
       <tr>
-        <td>#{{ t.id }}</td>
-        <td><strong>{{ t.raw_input }}</strong></td>
-        <td>
-          {% for ag in t.get_routed_agents() %}
-            <span class="badge {% if ag == 'GitHubAgent' %}badge-github{% elif ag == 'ContentAgent' %}badge-content{% elif ag == 'DailyWorkAgent' %}badge-daily{% else %}badge-automation{% endif %}">
-              {{ ag }}
-            </span>
-          {% endfor %}
+        <td style="vertical-align: top; font-weight: 700;">#{{ t.id }}</td>
+        <td style="vertical-align: top;">
+          <strong>{{ t.raw_input }}</strong>
+          {% if t.executive_summary or t.agent_runs %}
+          <details style="margin-top: 0.5rem; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 0.5rem 0.75rem;">
+            <summary style="cursor: pointer; font-size: 0.8rem; font-weight: 600; color: var(--primary);">
+              🔍 View Agent Trace &amp; Summary
+            </summary>
+            {% if t.executive_summary %}
+            <div style="margin-top: 0.5rem; padding: 0.5rem; background: var(--surface); border-left: 3px solid var(--primary); border-radius: 4px; font-size: 0.85rem; line-height: 1.5; white-space: pre-wrap;">
+              <strong>👑 Executive Summary:</strong><br>
+              {{ t.executive_summary }}
+            </div>
+            {% endif %}
+            {% if t.agent_runs %}
+            <div style="margin-top: 0.5rem; display: flex; flex-direction: column; gap: 0.4rem;">
+              <span style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Agent Steps:</span>
+              {% for run in t.agent_runs %}
+              <div style="background: var(--surface); border: 1px solid var(--border); padding: 0.4rem 0.6rem; border-radius: 4px; font-size: 0.8rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <strong>{{ run.agent_name }}</strong>
+                  <span class="badge {% if run.status == 'completed' %}badge-content{% elif run.status == 'failed' %}badge-automation{% else %}badge-daily{% endif %}" style="font-size: 0.7rem; padding: 0.1rem 0.35rem;">
+                    {{ run.status }}
+                  </span>
+                </div>
+                {% if run.output %}
+                <pre style="margin-top: 0.35rem; max-height: 100px; font-size: 0.75rem;">{{ run.output[:400] }}{% if run.output|length > 400 %}...{% endif %}</pre>
+                {% endif %}
+              </div>
+              {% endfor %}
+            </div>
+            {% endif %}
+          </details>
+          {% endif %}
         </td>
-        <td>
+        <td style="vertical-align: top;">
+          <div style="display: flex; flex-wrap: wrap; gap: 0.25rem;">
+            {% for ag in t.get_routed_agents() %}
+              <span class="badge {% if ag == 'GitHubAgent' %}badge-github{% elif ag == 'ContentAgent' %}badge-content{% elif ag == 'DailyWorkAgent' %}badge-daily{% else %}badge-automation{% endif %}" style="font-size: 0.75rem;">
+                {{ ag }}
+              </span>
+            {% endfor %}
+          </div>
+        </td>
+        <td style="vertical-align: top;">
           <span class="badge {% if t.status == 'completed' %}badge-content{% elif t.status == 'failed' %}badge-automation{% else %}badge-daily{% endif %}">
             {{ t.status }}
           </span>
         </td>
-        <td style="color: var(--text-muted); font-size: 0.85rem;">{{ t.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+        <td style="vertical-align: top; color: var(--text-muted); font-size: 0.85rem; white-space: nowrap;">
+          {{ t.created_at.strftime('%Y-%m-%d %H:%M') }}
+        </td>
+        <td style="vertical-align: top; text-align: right;">
+          <div style="display: flex; gap: 0.4rem; justify-content: flex-end; align-items: center;">
+            <a href="/tasks/export/{{ t.id }}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.5rem; text-decoration: none;" title="Download Task Markdown Audit">
+              📥 .md
+            </a>
+            <form action="/tasks/rerun/{{ t.id }}" method="POST" style="margin: 0;">
+              <button type="submit" class="btn btn-primary" style="font-size: 0.75rem; padding: 0.25rem 0.5rem; background: #6366F1; border: none; cursor: pointer;" title="Re-dispatch this task through the Supervisor">
+                🔄 Re-run
+              </button>
+            </form>
+          </div>
+        </td>
       </tr>
       {% else %}
       <tr>
-        <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 2rem;">No tasks recorded yet.</td>
+        <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 2rem;">No tasks recorded yet.</td>
       </tr>
       {% endfor %}
     </tbody>

@@ -198,6 +198,64 @@ def tasks_page(request: Request, status: Optional[str] = None, db: Session = Dep
     return templates.TemplateResponse(request=request, name="tasks.html", context=context)
 
 
+@app.post("/tasks/rerun/{task_id}")
+def rerun_task_endpoint(
+    task_id: int,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
+    old_task = db.query(Task).filter(Task.id == task_id).first()
+    if not old_task:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    new_task = Task(
+        raw_input=old_task.raw_input,
+        status="running",
+        created_at=datetime.now(timezone.utc)
+    )
+    db.add(new_task)
+    db.commit()
+    db.refresh(new_task)
+
+    background_tasks.add_task(run_supervisor_task, new_task.id, old_task.raw_input)
+    return RedirectResponse(url="/", status_code=303)
+
+
+@app.get("/tasks/export/{task_id}")
+def export_task_audit_endpoint(task_id: int, db: Session = Depends(get_db)):
+    task = db.query(Task).filter(Task.id == task_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    filename = f"task_{task.id}_audit.md"
+    body = f"# Task #{task.id} Audit Report\n\n"
+    body += f"- **Request:** {task.raw_input}\n"
+    body += f"- **Status:** {task.status.upper()}\n"
+    body += f"- **Created At:** {task.created_at.strftime('%Y-%m-%d %H:%M:%S UTC')}\n"
+    if task.completed_at:
+        body += f"- **Completed At:** {task.completed_at.strftime('%Y-%m-%d %H:%M:%S UTC')}\n"
+    body += f"- **Routed Pipeline:** {', '.join(task.get_routed_agents())}\n\n"
+
+    if task.executive_summary:
+        body += f"## Supervisor Executive Summary\n\n{task.executive_summary}\n\n"
+
+    if task.agent_runs:
+        body += "## Agent Execution Trace\n\n"
+        for idx, run in enumerate(task.agent_runs, 1):
+            body += f"### {idx}. {run.agent_name} ({run.status.upper()})\n\n"
+            if run.started_at:
+                body += f"- **Started:** {run.started_at.strftime('%Y-%m-%d %H:%M:%S UTC')}\n"
+            if run.finished_at:
+                body += f"- **Finished:** {run.finished_at.strftime('%Y-%m-%d %H:%M:%S UTC')}\n"
+            body += f"\n```\n{run.output or '(No output)'}\n```\n\n"
+
+    return Response(
+        content=body,
+        media_type="text/markdown; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )
+
+
 # ----------------------------------------------------------------------
 # 3. Content Drafts (CRUD)
 # ----------------------------------------------------------------------

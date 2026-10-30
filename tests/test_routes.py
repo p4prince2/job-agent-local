@@ -269,6 +269,62 @@ Architecture diagram with SQLite and local LLM icons.
         self.assertGreaterEqual(len(linked_drafts), 1)
         db.close()
 
+    def test_task_export_and_rerun(self):
+        from db.session import SessionLocal
+        from db.models import Task, AgentRun
+        from datetime import datetime, timezone
+
+        db = SessionLocal()
+        t = Task(
+            raw_input="Test audit task for export and rerun",
+            status="completed",
+            executive_summary="All pipeline stages succeeded flawlessly.",
+            created_at=datetime.now(timezone.utc),
+            completed_at=datetime.now(timezone.utc)
+        )
+        t.set_routed_agents(["ContentAgent", "GitHubAgent"])
+        db.add(t)
+        db.commit()
+        db.refresh(t)
+
+        run = AgentRun(
+            task_id=t.id,
+            agent_name="ContentAgent",
+            input=t.raw_input,
+            output="Generated mock drafts",
+            status="completed",
+            started_at=datetime.now(timezone.utc),
+            finished_at=datetime.now(timezone.utc)
+        )
+        db.add(run)
+        db.commit()
+        t_id = t.id
+        db.close()
+
+        # 1. Test Export .md
+        export_resp = self.client.get(f"/tasks/export/{t_id}")
+        self.assertEqual(export_resp.status_code, 200)
+        self.assertIn("Task #", export_resp.text)
+        self.assertIn("All pipeline stages succeeded flawlessly.", export_resp.text)
+        self.assertIn("Generated mock drafts", export_resp.text)
+        self.assertIn("attachment", export_resp.headers.get("content-disposition", ""))
+
+        # 2. Test Rerun
+        with patch("main.run_supervisor_task") as mock_runner:
+            rerun_resp = self.client.post(f"/tasks/rerun/{t_id}", follow_redirects=False)
+            self.assertEqual(rerun_resp.status_code, 303)
+
+        db = SessionLocal()
+        newest_task = db.query(Task).order_by(Task.id.desc()).first()
+        self.assertEqual(newest_task.raw_input, t.raw_input)
+        self.assertEqual(newest_task.status, "running")
+        db.close()
+
+    def test_tasks_page_filtering(self):
+        resp = self.client.get("/tasks?status=completed")
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("Task History", resp.text)
+
 
 if __name__ == "__main__":
     unittest.main()
