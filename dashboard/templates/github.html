@@ -26,6 +26,11 @@
           <span style="font-size: 0.8rem; color: var(--text-muted); margin-left: 0.5rem;">Review #{{ r.id }} &bull; {{ r.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
         </div>
         <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <form action="/github/repurpose/{{ r.id }}" method="POST" style="margin: 0;">
+            <button type="submit" class="btn btn-primary" style="font-size: 0.75rem; padding: 0.25rem 0.6rem; background: #6366F1; border: none; cursor: pointer;" title="Generate multi-format content drafts from this review">
+              ✍️ Repurpose into Drafts
+            </button>
+          </form>
           <a href="/github/export/{{ r.id }}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.6rem; text-decoration: none;">
             📥 Export .md
           </a>

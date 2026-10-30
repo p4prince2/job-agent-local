@@ -79,11 +79,23 @@ def on_shutdown():
 
 
 def get_common_context(db: Session, active_tab: str = "chat") -> dict:
-    """Helper providing global variables to templates like approval badge counters."""
+    """Helper providing global variables to templates like approval badge counters and metrics."""
     pending_count = len(ApprovalManager.get_pending_approvals(db=db))
+    total_tasks = db.query(Task).count()
+    completed_tasks = db.query(Task).filter(Task.status == "completed").count()
+    total_drafts = db.query(Draft).count()
+    active_work_items = db.query(WorkItem).filter(WorkItem.status != "done").count()
+    total_reviews = db.query(GitHubReview).count()
     return {
         "active_tab": active_tab,
-        "pending_approvals_count": pending_count
+        "pending_approvals_count": pending_count,
+        "metrics": {
+            "total_tasks": total_tasks,
+            "completed_tasks": completed_tasks,
+            "total_drafts": total_drafts,
+            "active_work_items": active_work_items,
+            "total_reviews": total_reviews
+        }
     }
 
 
@@ -403,6 +415,74 @@ def delete_reminder_endpoint(request: Request, reminder_id: int, db: Session = D
     return RedirectResponse(url="/work", status_code=303)
 
 
+@app.post("/work/decompose/{item_id}")
+def decompose_work_item_endpoint(item_id: int, db: Session = Depends(get_db)):
+    parent_item = db.query(WorkItem).filter(WorkItem.id == item_id).first()
+    if not parent_item:
+        raise HTTPException(status_code=404, detail="Work item not found")
+
+    prompt = f"""You are the Daily Work Agent for Prince.
+Decompose this major goal/task into 2 to 4 concrete, actionable subtasks:
+Goal: "{parent_item.title}"
+Project Tag: {parent_item.project_tag}
+Priority: {parent_item.priority}
+
+For each subtask, output on a new line strictly formatted as:
+- Subtask: [Concise actionable title] | Priority: [high/medium/low]
+"""
+    try:
+        response_text = default_supervisor.daily_work_agent.llm.generate(
+            messages=[{"role": "user", "content": prompt}],
+            system_prompt="You are an expert productivity engineer decomposing high-level milestones into atomic subtasks.",
+            temperature=0.5
+        )
+        created_count = 0
+        for line in response_text.split("\n"):
+            clean = line.strip()
+            if "subtask:" in clean.lower() or (clean.startswith(("-", "*", "1.", "2.", "3.", "4.")) and len(clean) > 10):
+                title_part = clean
+                priority = parent_item.priority or "medium"
+                if "|" in clean:
+                    parts = clean.split("|")
+                    title_part = parts[0]
+                    if len(parts) > 1 and "priority:" in parts[1].lower():
+                        p_val = parts[1].lower().replace("priority:", "").strip()
+                        if p_val in ["high", "medium", "low"]:
+                            priority = p_val
+                if ":" in title_part:
+                    title_part = title_part.split(":", 1)[1]
+                title_clean = title_part.strip().strip("*\"'- ")
+                if 5 < len(title_clean) < 150:
+                    sub_item = WorkItem(
+                        title=title_clean,
+                        project_tag=parent_item.project_tag,
+                        priority=priority,
+                        parent_id=parent_item.id,
+                        status="todo",
+                        created_at=datetime.now(timezone.utc)
+                    )
+                    db.add(sub_item)
+                    created_count += 1
+                    if created_count >= 4:
+                        break
+        if created_count == 0:
+            sub_item = WorkItem(
+                title=f"Execute Phase 1 of '{parent_item.title[:45]}'",
+                project_tag=parent_item.project_tag,
+                priority=parent_item.priority,
+                parent_id=parent_item.id,
+                status="todo",
+                created_at=datetime.now(timezone.utc)
+            )
+            db.add(sub_item)
+        db.commit()
+        logger.info(f"Decomposed WorkItem #{parent_item.id} into subtasks")
+    except Exception as e:
+        logger.error(f"Error decomposing work item #{item_id}: {e}")
+
+    return RedirectResponse(url="/work", status_code=303)
+
+
 # ----------------------------------------------------------------------
 # 5. GitHub Reviews
 # ----------------------------------------------------------------------
@@ -422,6 +502,22 @@ def audit_github_repo_endpoint(
     target = repo.strip() or "."
     default_supervisor.github_agent.execute(f"Review repository {target}", db=db)
     return RedirectResponse(url="/github", status_code=303)
+
+
+@app.post("/github/repurpose/{review_id}")
+def repurpose_github_review_endpoint(review_id: int, db: Session = Depends(get_db)):
+    rev = db.query(GitHubReview).filter(GitHubReview.id == review_id).first()
+    if not rev:
+        raise HTTPException(status_code=404, detail="Review not found")
+    prompt = f"Technical architectural breakdown and key engineering insights from repository audit of {rev.repo}"
+    context = {
+        "github_summary": rev.human_summary,
+        "telemetry": rev.summary_json,
+        "repo": rev.repo,
+        "source_url": f"https://github.com/{rev.repo}" if "/" in rev.repo else rev.repo
+    }
+    default_supervisor.content_agent.execute(prompt, context=context, db=db)
+    return RedirectResponse(url="/drafts", status_code=303)
 
 
 @app.get("/github/export/{review_id}")

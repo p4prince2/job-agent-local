@@ -1,8 +1,10 @@
 """Tests for FastAPI HTTP routes and HTML rendering (per SPEC.md §13)."""
 
 import unittest
+from unittest.mock import patch
 from fastapi.testclient import TestClient
 from main import app
+from agents.supervisor import default_supervisor
 from db.session import init_db
 
 
@@ -108,8 +110,13 @@ class TestFastAPIRoutes(unittest.TestCase):
         self.assertIn("attachment", resp.headers.get("content-disposition", ""))
 
     def test_github_audit_and_export(self):
-        audit_resp = self.client.post("/github/audit", data={"repo": "."}, follow_redirects=False)
-        self.assertEqual(audit_resp.status_code, 303)
+        with patch.object(
+            default_supervisor.github_agent.llm,
+            "generate",
+            return_value="Mock GitHub Architecture Review for testing."
+        ):
+            audit_resp = self.client.post("/github/audit", data={"repo": "."}, follow_redirects=False)
+            self.assertEqual(audit_resp.status_code, 303)
 
         from db.session import SessionLocal
         from db.models import GitHubReview
@@ -194,7 +201,76 @@ class TestFastAPIRoutes(unittest.TestCase):
         self.assertIsNone(rem_after)
         db.close()
 
+    def test_metrics_in_homepage(self):
+        resp = self.client.get("/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("Tasks Run", resp.text)
+        self.assertIn("Content Drafts", resp.text)
+        self.assertIn("Active Tasks", resp.text)
+
+    def test_work_item_decomposition(self):
+        from db.session import SessionLocal
+        from db.models import WorkItem
+        db = SessionLocal()
+        parent = WorkItem(title="Master Graph Algorithms & Dynamic Programming", project_tag="gate_prep", priority="high", status="todo")
+        db.add(parent)
+        db.commit()
+        db.refresh(parent)
+        parent_id = parent.id
+        db.close()
+
+        with patch.object(
+            default_supervisor.daily_work_agent.llm,
+            "generate",
+            return_value="- Subtask: Study BFS & DFS traversals | Priority: high\n- Subtask: Solve 5 Dijkstra problems | Priority: medium"
+        ):
+            resp = self.client.post(f"/work/decompose/{parent_id}", follow_redirects=False)
+            self.assertEqual(resp.status_code, 303)
+
+        db = SessionLocal()
+        subtasks = db.query(WorkItem).filter(WorkItem.parent_id == parent_id).all()
+        self.assertGreaterEqual(len(subtasks), 1)
+        self.assertEqual(subtasks[0].project_tag, "gate_prep")
+        db.close()
+
+    def test_github_review_repurpose(self):
+        from db.session import SessionLocal
+        from db.models import GitHubReview, Draft
+        db = SessionLocal()
+        rev = GitHubReview(
+            repo="p4prince2/job-agent-local",
+            summary_json='{"status": "ok"}',
+            human_summary="Solid local agentic workflow implementation with modular architecture."
+        )
+        db.add(rev)
+        db.commit()
+        db.refresh(rev)
+        rev_id = rev.id
+        db.close()
+
+        mock_content = """### 1. LinkedIn Post
+Deep architectural insights from the job-agent-local audit.
+
+### 2. Expanded Medium Article
+Exploring local agent pipelines and safety gates.
+
+### 3. Condensed X (Twitter) Post
+Local-first agent architectures keep privacy intact.
+
+### 4. Cover Image Generation Prompt
+Architecture diagram with SQLite and local LLM icons.
+"""
+        with patch.object(default_supervisor.content_agent.llm, "generate", return_value=mock_content):
+            resp = self.client.post(f"/github/repurpose/{rev_id}", follow_redirects=False)
+            self.assertEqual(resp.status_code, 303)
+
+        db = SessionLocal()
+        linked_drafts = db.query(Draft).filter(Draft.source_ref.like("%p4prince2/job-agent-local%")).all()
+        self.assertGreaterEqual(len(linked_drafts), 1)
+        db.close()
+
 
 if __name__ == "__main__":
     unittest.main()
+
 

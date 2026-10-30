@@ -32,11 +32,11 @@
       </form>
 
       <div style="margin-bottom: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
-        <a href="/work?tag=all" class="btn btn-secondary" style="font-size: 0.8rem;">All</a>
-        <a href="/work?tag=gate_prep" class="btn btn-secondary" style="font-size: 0.8rem;">GATE Prep</a>
-        <a href="/work?tag=ai_ml" class="btn btn-secondary" style="font-size: 0.8rem;">AI/ML Projects</a>
-        <a href="/work?tag=github" class="btn btn-secondary" style="font-size: 0.8rem;">GitHub Work</a>
-        <a href="/work?tag=content" class="btn btn-secondary" style="font-size: 0.8rem;">Content Creation</a>
+        <a href="/work?tag=all" class="btn btn-secondary" style="font-size: 0.8rem; {% if selected_tag == 'all' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">All</a>
+        <a href="/work?tag=gate_prep" class="btn btn-secondary" style="font-size: 0.8rem; {% if selected_tag == 'gate_prep' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">GATE Prep</a>
+        <a href="/work?tag=ai_ml" class="btn btn-secondary" style="font-size: 0.8rem; {% if selected_tag == 'ai_ml' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">AI/ML Projects</a>
+        <a href="/work?tag=github" class="btn btn-secondary" style="font-size: 0.8rem; {% if selected_tag == 'github' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">GitHub Work</a>
+        <a href="/work?tag=content" class="btn btn-secondary" style="font-size: 0.8rem; {% if selected_tag == 'content' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">Content Creation</a>
       </div>
 
       <div style="display: flex; flex-direction: column; gap: 0.75rem;">
@@ -64,6 +64,11 @@
             </div>
           </div>
           <div style="display: flex; align-items: center; gap: 0.5rem;">
+            {% if not item.parent_id and item.status != 'done' %}
+            <form action="/work/decompose/{{ item.id }}" method="POST" style="margin: 0;">
+              <button type="submit" class="btn btn-secondary" style="padding: 0.2rem 0.5rem; font-size: 0.75rem; color: #4F46E5; border-color: #C7D2FE;" title="Decompose into actionable subtasks with AI">⚡ Decompose</button>
+            </form>
+            {% endif %}
             <span class="badge {% if item.status == 'done' %}badge-content{% else %}badge-daily{% endif %}" style="font-size: 0.75rem;">
               {{ item.status }}
             </span>
