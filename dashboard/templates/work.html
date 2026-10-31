@@ -31,12 +31,36 @@
         </div>
       </form>
 
-      <div style="margin-bottom: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
-        <a href="/work?tag=all" class="btn btn-secondary" style="font-size: 0.8rem; {% if selected_tag == 'all' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">All</a>
-        <a href="/work?tag=gate_prep" class="btn btn-secondary" style="font-size: 0.8rem; {% if selected_tag == 'gate_prep' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">GATE Prep</a>
-        <a href="/work?tag=ai_ml" class="btn btn-secondary" style="font-size: 0.8rem; {% if selected_tag == 'ai_ml' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">AI/ML Projects</a>
-        <a href="/work?tag=github" class="btn btn-secondary" style="font-size: 0.8rem; {% if selected_tag == 'github' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">GitHub Work</a>
-        <a href="/work?tag=content" class="btn btn-secondary" style="font-size: 0.8rem; {% if selected_tag == 'content' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">Content Creation</a>
+      <!-- Work Controls Toolbar -->
+      <div style="background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 1rem; display: flex; flex-direction: column; gap: 0.6rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+          <div style="display: flex; gap: 0.35rem; flex-wrap: wrap;">
+            <a href="/work?tag=all{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.55rem; {% if selected_tag == 'all' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">All</a>
+            <a href="/work?tag=gate_prep{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.55rem; {% if selected_tag == 'gate_prep' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">GATE Prep</a>
+            <a href="/work?tag=ai_ml{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.55rem; {% if selected_tag == 'ai_ml' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">AI/ML</a>
+            <a href="/work?tag=github{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.55rem; {% if selected_tag == 'github' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">GitHub</a>
+            <a href="/work?tag=content{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.55rem; {% if selected_tag == 'content' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">Content</a>
+          </div>
+          <div style="display: flex; gap: 0.4rem; align-items: center;">
+            <a href="/work/export?tag={{ selected_tag }}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.6rem; text-decoration: none;" title="Download tasks as Markdown checklist">
+              📥 Export .md
+            </a>
+            <form action="/work/clear-completed" method="POST" style="margin: 0;" onsubmit="return confirm('Clear all completed items?');">
+              <button type="submit" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.6rem; color: #DC2626;" title="Remove done tasks">
+                🧹 Clear Done
+              </button>
+            </form>
+          </div>
+        </div>
+
+        <form action="/work" method="GET" style="display: flex; gap: 0.4rem; margin: 0;">
+          <input type="hidden" name="tag" value="{{ selected_tag }}">
+          <input type="text" name="q" value="{{ search_query }}" placeholder="Filter work items by title..." style="margin: 0; font-size: 0.82rem; height: 30px;">
+          <button type="submit" class="btn btn-secondary" style="font-size: 0.75rem; height: 30px; padding: 0 0.6rem;">Filter</button>
+          {% if search_query %}
+          <a href="/work?tag={{ selected_tag }}" class="btn btn-secondary" style="font-size: 0.75rem; height: 30px; padding: 0 0.6rem; text-decoration: none; display: flex; align-items: center;">Reset</a>
+          {% endif %}
+        </form>
       </div>
 
       <div style="display: flex; flex-direction: column; gap: 0.75rem;">

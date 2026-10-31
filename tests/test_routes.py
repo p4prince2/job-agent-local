@@ -325,6 +325,76 @@ Architecture diagram with SQLite and local LLM icons.
         self.assertEqual(resp.status_code, 200)
         self.assertIn("Task History", resp.text)
 
+    def test_drafts_search_and_export_all(self):
+        from db.session import SessionLocal
+        from db.models import Draft
+        import uuid
+
+        unique_marker = f"UniqueDraft_{uuid.uuid4().hex[:6]}"
+        db = SessionLocal()
+        d = Draft(
+            platform="linkedin",
+            type="original",
+            status="approved",
+            content=f"Engineering breakdown of {unique_marker} in local LLM pipelines."
+        )
+        db.add(d)
+        db.commit()
+        db.close()
+
+        # 1. Search drafts
+        search_resp = self.client.get(f"/drafts?q={unique_marker}")
+        self.assertEqual(search_resp.status_code, 200)
+        self.assertIn(unique_marker, search_resp.text)
+
+        # 2. Filter by status
+        status_resp = self.client.get("/drafts?status=approved")
+        self.assertEqual(status_resp.status_code, 200)
+        self.assertIn("APPROVED", status_resp.text)
+
+        # 3. Export all
+        export_resp = self.client.get("/drafts/export-all?platform=linkedin")
+        self.assertEqual(export_resp.status_code, 200)
+        self.assertIn("Content Lab Drafts Digest", export_resp.text)
+        self.assertIn("attachment", export_resp.headers.get("content-disposition", ""))
+
+    def test_work_export_and_clear_completed(self):
+        from db.session import SessionLocal
+        from db.models import WorkItem
+        import uuid
+
+        unique_title = f"Task To Be Cleared {uuid.uuid4().hex[:6]}"
+        db = SessionLocal()
+        w1 = WorkItem(title=unique_title, project_tag="ai_ml", priority="high", status="done")
+        w2 = WorkItem(title="Active Keep Task", project_tag="ai_ml", priority="medium", status="todo")
+        db.add_all([w1, w2])
+        db.commit()
+        db.close()
+
+        # 1. Export work checklist
+        export_resp = self.client.get("/work/export?tag=ai_ml")
+        self.assertEqual(export_resp.status_code, 200)
+        self.assertIn("Daily Work & Milestones Checklist", export_resp.text)
+        self.assertIn("[x]", export_resp.text)
+        self.assertIn("[ ]", export_resp.text)
+        self.assertIn("attachment", export_resp.headers.get("content-disposition", ""))
+
+        # 2. Search work items
+        filter_resp = self.client.get(f"/work?q={unique_title}")
+        self.assertEqual(filter_resp.status_code, 200)
+        self.assertIn(unique_title, filter_resp.text)
+
+        # 3. Clear completed
+        clear_resp = self.client.post("/work/clear-completed", follow_redirects=False)
+        self.assertEqual(clear_resp.status_code, 303)
+
+        db = SessionLocal()
+        cleared_item = db.query(WorkItem).filter(WorkItem.title == unique_title).first()
+        self.assertIsNone(cleared_item)
+        keep_item = db.query(WorkItem).filter(WorkItem.title == "Active Keep Task").first()
+        self.assertIsNotNone(keep_item)
+        db.close()
+
 
 if __name__ == "__main__":
     unittest.main()

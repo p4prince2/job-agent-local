@@ -4,19 +4,44 @@
 
 {% block content %}
 <div class="card">
-  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.75rem;">
     <div>
       <h2>✍️ Technical Content Lab</h2>
       <p style="color: var(--text-muted); font-size: 0.9rem;">
         Drafts for LinkedIn, Medium, and X. Saved locally in SQLite; never auto-published without explicit approval.
       </p>
     </div>
-    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-      <a href="/drafts?platform=all" class="btn btn-secondary" style="font-size: 0.85rem;">All</a>
-      <a href="/drafts?platform=linkedin" class="btn btn-secondary" style="font-size: 0.85rem;">LinkedIn</a>
-      <a href="/drafts?platform=medium" class="btn btn-secondary" style="font-size: 0.85rem;">Medium</a>
-      <a href="/drafts?platform=x" class="btn btn-secondary" style="font-size: 0.85rem;">X (Twitter)</a>
-      <a href="/drafts?platform=image_prompt" class="btn btn-secondary" style="font-size: 0.85rem;">🎨 Image Prompts</a>
+    <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+      <a href="/drafts/export-all?platform={{ selected_platform }}&status={{ selected_status }}" class="btn btn-secondary" style="font-size: 0.85rem; text-decoration: none;" title="Export all matching drafts as a Markdown digest">
+        📥 Export All .md
+      </a>
+      <div style="display: flex; gap: 0.35rem; flex-wrap: wrap;">
+        <a href="/drafts?platform=all{% if selected_status != 'all' %}&status={{ selected_status }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.8rem; {% if selected_platform == 'all' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">All</a>
+        <a href="/drafts?platform=linkedin{% if selected_status != 'all' %}&status={{ selected_status }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.8rem; {% if selected_platform == 'linkedin' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">LinkedIn</a>
+        <a href="/drafts?platform=medium{% if selected_status != 'all' %}&status={{ selected_status }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.8rem; {% if selected_platform == 'medium' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">Medium</a>
+        <a href="/drafts?platform=x{% if selected_status != 'all' %}&status={{ selected_status }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.8rem; {% if selected_platform == 'x' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">X (Twitter)</a>
+        <a href="/drafts?platform=image_prompt{% if selected_status != 'all' %}&status={{ selected_status }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.8rem; {% if selected_platform == 'image_prompt' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">🎨 Images</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Search & Status Filter Controls -->
+  <div style="background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+    <form action="/drafts" method="GET" style="display: flex; gap: 0.5rem; align-items: center; margin: 0; flex: 1; max-width: 480px;">
+      <input type="hidden" name="platform" value="{{ selected_platform }}">
+      <input type="hidden" name="status" value="{{ selected_status }}">
+      <input type="text" name="q" value="{{ search_query }}" placeholder="Search drafts by keyword..." style="margin: 0; font-size: 0.85rem; height: 34px;">
+      <button type="submit" class="btn btn-secondary" style="font-size: 0.8rem; height: 34px; padding: 0 0.75rem;">🔍 Search</button>
+      {% if search_query %}
+      <a href="/drafts?platform={{ selected_platform }}&status={{ selected_status }}" class="btn btn-secondary" style="font-size: 0.8rem; height: 34px; padding: 0 0.75rem; text-decoration: none;">Clear</a>
+      {% endif %}
+    </form>
+    <div style="display: flex; gap: 0.35rem; align-items: center;">
+      <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Status:</span>
+      <a href="/drafts?status=all{% if selected_platform != 'all' %}&platform={{ selected_platform }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.2rem 0.5rem; {% if selected_status == 'all' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">All</a>
+      <a href="/drafts?status=draft{% if selected_platform != 'all' %}&platform={{ selected_platform }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.2rem 0.5rem; {% if selected_status == 'draft' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">Drafts</a>
+      <a href="/drafts?status=approved{% if selected_platform != 'all' %}&platform={{ selected_platform }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.2rem 0.5rem; {% if selected_status == 'approved' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">Approved</a>
+      <a href="/drafts?status=posted_manually{% if selected_platform != 'all' %}&platform={{ selected_platform }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.2rem 0.5rem; {% if selected_status == 'posted_manually' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">Posted</a>
     </div>
   </div>
 

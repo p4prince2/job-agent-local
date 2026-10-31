@@ -260,18 +260,65 @@ def export_task_audit_endpoint(task_id: int, db: Session = Depends(get_db)):
 # 3. Content Drafts (CRUD)
 # ----------------------------------------------------------------------
 @app.get("/drafts", response_class=HTMLResponse)
-def drafts_page(request: Request, platform: Optional[str] = None, db: Session = Depends(get_db)):
+def drafts_page(
+    request: Request,
+    platform: Optional[str] = None,
+    status: Optional[str] = None,
+    q: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
     query = db.query(Draft)
     if platform and platform != "all":
         query = query.filter(Draft.platform == platform.lower())
+    if status and status != "all":
+        query = query.filter(Draft.status == status.lower())
+    if q and q.strip():
+        search_term = f"%{q.strip()}%"
+        query = query.filter(Draft.content.ilike(search_term))
     drafts = query.order_by(Draft.created_at.desc()).all()
 
     context = get_common_context(db, active_tab="drafts")
     context.update({
         "drafts": drafts,
-        "selected_platform": platform or "all"
+        "selected_platform": platform or "all",
+        "selected_status": status or "all",
+        "search_query": q or ""
     })
     return templates.TemplateResponse(request=request, name="drafts.html", context=context)
+
+
+@app.get("/drafts/export-all")
+def export_all_drafts_endpoint(
+    platform: Optional[str] = None,
+    status: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    query = db.query(Draft)
+    if platform and platform != "all":
+        query = query.filter(Draft.platform == platform.lower())
+    if status and status != "all":
+        query = query.filter(Draft.status == status.lower())
+    drafts = query.order_by(Draft.created_at.desc()).all()
+
+    filename = f"drafts_digest_{platform or 'all'}.md"
+    body = f"# Content Lab Drafts Digest\n\n"
+    body += f"- Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}\n"
+    body += f"- Filter: Platform={platform or 'all'}, Status={status or 'all'}\n"
+    body += f"- Total Drafts: {len(drafts)}\n\n---\n\n"
+
+    for d in drafts:
+        body += f"## Draft #{d.id} [{d.platform.upper()}] - {d.status.upper()}\n\n"
+        body += f"- **Type:** {d.type}\n"
+        body += f"- **Created:** {d.created_at.strftime('%Y-%m-%d %H:%M:%S UTC')}\n"
+        if d.source_ref:
+            body += f"- **Source:** {d.source_ref}\n"
+        body += f"\n{d.content}\n\n---\n\n"
+
+    return Response(
+        content=body,
+        media_type="text/markdown; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )
 
 
 @app.post("/drafts/update/{draft_id}")
@@ -343,10 +390,18 @@ def mark_draft_posted_endpoint(draft_id: int, db: Session = Depends(get_db)):
 # 4. Daily Work & Reminders (CRUD)
 # ----------------------------------------------------------------------
 @app.get("/work", response_class=HTMLResponse)
-def work_page(request: Request, tag: Optional[str] = None, db: Session = Depends(get_db)):
+def work_page(
+    request: Request,
+    tag: Optional[str] = None,
+    q: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
     query = db.query(WorkItem)
     if tag and tag != "all":
         query = query.filter(WorkItem.project_tag == tag.lower())
+    if q and q.strip():
+        search_term = f"%{q.strip()}%"
+        query = query.filter(WorkItem.title.ilike(search_term))
     work_items = query.order_by(WorkItem.created_at.desc()).all()
     reminders = db.query(Reminder).order_by(Reminder.remind_at.asc()).all()
 
@@ -354,9 +409,45 @@ def work_page(request: Request, tag: Optional[str] = None, db: Session = Depends
     context.update({
         "work_items": work_items,
         "reminders": reminders,
-        "selected_tag": tag or "all"
+        "selected_tag": tag or "all",
+        "search_query": q or ""
     })
     return templates.TemplateResponse(request=request, name="work.html", context=context)
+
+
+@app.get("/work/export")
+def export_work_items_endpoint(tag: Optional[str] = None, db: Session = Depends(get_db)):
+    query = db.query(WorkItem)
+    if tag and tag != "all":
+        query = query.filter(WorkItem.project_tag == tag.lower())
+    items = query.order_by(WorkItem.created_at.desc()).all()
+
+    tag_str = f" ({tag.upper()})" if tag and tag != "all" else ""
+    filename = f"work_items_{tag or 'all'}.md"
+    body = f"# Daily Work & Milestones Checklist{tag_str}\n\n"
+    body += f"- Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}\n"
+    body += f"- Total Items: {len(items)}\n\n"
+
+    for it in items:
+        status_box = "[x]" if it.status == "done" else "[ ]"
+        indent = "  " if it.parent_id else ""
+        sub_info = f" (Subtask of #{it.parent_id})" if it.parent_id else ""
+        body += f"{indent}- {status_box} **{it.title}** `[{it.project_tag.upper()}]` `[{it.priority.upper()}]`{sub_info}\n"
+
+    return Response(
+        content=body,
+        media_type="text/markdown; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )
+
+
+@app.post("/work/clear-completed")
+def clear_completed_work_items(db: Session = Depends(get_db)):
+    completed = db.query(WorkItem).filter(WorkItem.status == "done").all()
+    for item in completed:
+        db.delete(item)
+    db.commit()
+    return RedirectResponse(url="/work", status_code=303)
 
 
 @app.post("/work/create")
