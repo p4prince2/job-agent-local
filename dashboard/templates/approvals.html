@@ -59,11 +59,16 @@
 
   <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1.5rem; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
     <h3>Decision History</h3>
-    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-      <a href="/approvals?status=all" class="btn btn-secondary" style="font-size: 0.8rem; {% if selected_status == 'all' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">All</a>
-      <a href="/approvals?status=pending" class="btn btn-secondary" style="font-size: 0.8rem; {% if selected_status == 'pending' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">Pending</a>
-      <a href="/approvals?status=approved" class="btn btn-secondary" style="font-size: 0.8rem; {% if selected_status == 'approved' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">Approved</a>
-      <a href="/approvals?status=rejected" class="btn btn-secondary" style="font-size: 0.8rem; {% if selected_status == 'rejected' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">Rejected</a>
+    <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+      <a href="/approvals/export?status={{ selected_status }}" class="btn btn-secondary" style="font-size: 0.8rem; text-decoration: none;" title="Download safety approval records as Markdown">
+        📥 Export Audit .md
+      </a>
+      <div style="display: flex; gap: 0.35rem; flex-wrap: wrap;">
+        <a href="/approvals?status=all" class="btn btn-secondary" style="font-size: 0.8rem; {% if selected_status == 'all' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">All</a>
+        <a href="/approvals?status=pending" class="btn btn-secondary" style="font-size: 0.8rem; {% if selected_status == 'pending' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">Pending</a>
+        <a href="/approvals?status=approved" class="btn btn-secondary" style="font-size: 0.8rem; {% if selected_status == 'approved' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">Approved</a>
+        <a href="/approvals?status=rejected" class="btn btn-secondary" style="font-size: 0.8rem; {% if selected_status == 'rejected' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">Rejected</a>
+      </div>
     </div>
   </div>
   <table>

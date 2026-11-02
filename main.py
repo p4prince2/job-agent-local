@@ -686,6 +686,17 @@ def export_github_review_endpoint(review_id: int, db: Session = Depends(get_db))
     )
 
 
+@app.post("/github/delete/{review_id}")
+def delete_github_review_endpoint(request: Request, review_id: int, db: Session = Depends(get_db)):
+    rev = db.query(GitHubReview).filter(GitHubReview.id == review_id).first()
+    if rev:
+        db.delete(rev)
+        db.commit()
+    if request.headers.get("HX-Request"):
+        return HTMLResponse("")
+    return RedirectResponse(url="/github", status_code=303)
+
+
 # ----------------------------------------------------------------------
 # 6. Approval Queue & Safety Center
 # ----------------------------------------------------------------------
@@ -703,6 +714,36 @@ def approvals_page(request: Request, status: Optional[str] = None, db: Session =
         "selected_status": status or "all"
     })
     return templates.TemplateResponse(request=request, name="approvals.html", context=context)
+
+
+@app.get("/approvals/export")
+def export_approvals_endpoint(status: Optional[str] = None, db: Session = Depends(get_db)):
+    query = db.query(Approval)
+    if status and status != "all":
+        query = query.filter(Approval.status == status.lower())
+    approvals = query.order_by(Approval.created_at.desc()).all()
+
+    filename = f"approvals_audit_{status or 'all'}.md"
+    body = f"# Human Approval & Safety Audit\n\n"
+    body += f"- Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}\n"
+    body += f"- Filter: {status or 'all'}\n"
+    body += f"- Total Records: {len(approvals)}\n\n---\n\n"
+
+    for a in approvals:
+        body += f"## Approval #{a.id} - {a.status.upper()}\n\n"
+        body += f"- **Action Type:** `{a.action_type}`\n"
+        body += f"- **Requested By:** {a.requested_by_agent}\n"
+        body += f"- **Description:** {a.description}\n"
+        body += f"- **Created At:** {a.created_at.strftime('%Y-%m-%d %H:%M:%S UTC')}\n"
+        if a.resolved_at:
+            body += f"- **Resolved At:** {a.resolved_at.strftime('%Y-%m-%d %H:%M:%S UTC')}\n"
+        body += f"\n```json\n{a.payload_json}\n```\n\n---\n\n"
+
+    return Response(
+        content=body,
+        media_type="text/markdown; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )
 
 
 @app.post("/approvals/resolve/{approval_id}")
@@ -755,6 +796,42 @@ def logs_page(
         "search_query": q or ""
     })
     return templates.TemplateResponse(request=request, name="logs.html", context=context)
+
+
+@app.get("/logs/export")
+def export_logs_endpoint(
+    agent: Optional[str] = None,
+    level: Optional[str] = None,
+    q: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    query = db.query(Log)
+    if agent and agent != "all":
+        query = query.filter(Log.agent_name == agent)
+    if level and level != "all":
+        query = query.filter(Log.level == level.upper())
+    if q and q.strip():
+        query = query.filter(Log.message.ilike(f"%{q.strip()}%"))
+    logs = query.order_by(Log.created_at.desc()).limit(1000).all()
+
+    filename = f"agent_logs_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.txt"
+    lines = [
+        f"[{l.created_at.strftime('%Y-%m-%d %H:%M:%S UTC')}] [{l.level:<7}] [{l.agent_name:<18}] {l.message}"
+        for l in logs
+    ]
+    body = "\n".join(lines)
+    return Response(
+        content=body,
+        media_type="text/plain; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )
+
+
+@app.post("/logs/clear")
+def clear_logs_endpoint(db: Session = Depends(get_db)):
+    db.query(Log).delete()
+    db.commit()
+    return RedirectResponse(url="/logs", status_code=303)
 
 
 if __name__ == "__main__":

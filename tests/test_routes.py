@@ -395,6 +395,56 @@ Architecture diagram with SQLite and local LLM icons.
         self.assertIsNotNone(keep_item)
         db.close()
 
+    def test_github_delete(self):
+        from db.session import SessionLocal
+        from db.models import GitHubReview
+        db = SessionLocal()
+        rev = GitHubReview(repo="test/delete-repo", summary_json="{}", human_summary="Test review to delete")
+        db.add(rev)
+        db.commit()
+        db.refresh(rev)
+        rev_id = rev.id
+        db.close()
+
+        del_resp = self.client.post(f"/github/delete/{rev_id}", headers={"HX-Request": "true"})
+        self.assertEqual(del_resp.status_code, 200)
+        self.assertEqual(del_resp.text, "")
+
+        db = SessionLocal()
+        found = db.query(GitHubReview).filter(GitHubReview.id == rev_id).first()
+        self.assertIsNone(found)
+        db.close()
+
+    def test_approvals_export(self):
+        export_resp = self.client.get("/approvals/export")
+        self.assertEqual(export_resp.status_code, 200)
+        self.assertIn("Human Approval & Safety Audit", export_resp.text)
+        self.assertIn("attachment", export_resp.headers.get("content-disposition", ""))
+
+    def test_logs_export_and_clear(self):
+        from db.session import SessionLocal
+        from db.models import Log
+        db = SessionLocal()
+        test_log = Log(agent_name="TestLogger", level="INFO", message="Unique test log message for export")
+        db.add(test_log)
+        db.commit()
+        db.close()
+
+        # 1. Export logs
+        export_resp = self.client.get("/logs/export")
+        self.assertEqual(export_resp.status_code, 200)
+        self.assertIn("Unique test log message for export", export_resp.text)
+        self.assertIn("attachment", export_resp.headers.get("content-disposition", ""))
+
+        # 2. Clear logs
+        clear_resp = self.client.post("/logs/clear", follow_redirects=False)
+        self.assertEqual(clear_resp.status_code, 303)
+
+        db = SessionLocal()
+        count = db.query(Log).count()
+        self.assertEqual(count, 0)
+        db.close()
+
 
 if __name__ == "__main__":
     unittest.main()

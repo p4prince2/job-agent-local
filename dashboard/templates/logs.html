@@ -22,12 +22,20 @@
   </div>
 
   <div style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap;">
-    <div style="display: flex; gap: 0.4rem; align-items: center;">
+    <div style="display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap;">
       <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">LEVEL:</span>
       <a href="/logs?level=all{% if selected_agent != 'all' %}&agent={{ selected_agent }}{% endif %}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.2rem 0.6rem; {% if selected_level == 'all' %}background: var(--primary); color: white;{% endif %}">ALL</a>
       <a href="/logs?level=info{% if selected_agent != 'all' %}&agent={{ selected_agent }}{% endif %}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.2rem 0.6rem; {% if selected_level == 'info' %}background: var(--primary); color: white;{% endif %}">INFO</a>
       <a href="/logs?level=warning{% if selected_agent != 'all' %}&agent={{ selected_agent }}{% endif %}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.2rem 0.6rem; {% if selected_level == 'warning' %}background: var(--primary); color: white;{% endif %}">WARNING</a>
       <a href="/logs?level=error{% if selected_agent != 'all' %}&agent={{ selected_agent }}{% endif %}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.2rem 0.6rem; {% if selected_level == 'error' %}background: var(--primary); color: white;{% endif %}">ERROR</a>
+      <a href="/logs/export?agent={{ selected_agent }}&level={{ selected_level }}{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.2rem 0.6rem; text-decoration: none;" title="Download logs as text file">
+        📥 Export .txt
+      </a>
+      <form action="/logs/clear" method="POST" style="margin: 0;" onsubmit="return confirm('Clear all activity logs?');">
+        <button type="submit" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.2rem 0.5rem; color: #DC2626;" title="Wipe log database records">
+          🧹 Clear Logs
+        </button>
+      </form>
     </div>
 
     <form action="/logs" method="GET" style="display: flex; gap: 0.5rem; margin: 0;">

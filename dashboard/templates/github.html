@@ -19,7 +19,7 @@
 
   <div style="display: flex; flex-direction: column; gap: 1.5rem;">
     {% for r in reviews %}
-    <div style="border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; background: var(--surface);">
+    <div id="review-card-{{ r.id }}" style="border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; background: var(--surface);">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
         <div>
           <h3 style="display: inline;">📁 {{ r.repo }}</h3>
@@ -34,6 +34,15 @@
           <a href="/github/export/{{ r.id }}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.6rem; text-decoration: none;">
             📥 Export .md
           </a>
+          <form action="/github/delete/{{ r.id }}" method="POST"
+                hx-post="/github/delete/{{ r.id }}"
+                hx-target="#review-card-{{ r.id }}"
+                hx-swap="outerHTML swap:300ms"
+                style="margin: 0;" onsubmit="return confirm('Delete this audit report?');">
+            <button type="submit" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.5rem; color: #DC2626;" title="Delete this review">
+              🗑️
+            </button>
+          </form>
           <span class="badge badge-github">Read-Only Audit</span>
         </div>
       </div>
