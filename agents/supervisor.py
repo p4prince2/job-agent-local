@@ -101,18 +101,54 @@ class SupervisorAgent:
         return candidates
 
     def route_task(self, prompt: str) -> List[str]:
-        """Combines fast shortlist with LLM confirmation for compound tasks."""
+        """Combines fast shortlist with ordering rules for compound tasks."""
         shortlist = self.shortlist_agents(prompt)
 
-        # If AutomationAgent was shortlisted, keep it in the route
+        # If AutomationAgent was shortlisted alone, keep it as single route
         if "AutomationAgent" in shortlist and len(shortlist) == 1:
             return ["AutomationAgent"]
 
-        # If it's a clear single or compound pattern, use deterministic route
+        # Ensure GitHubAgent executes before ContentAgent so repo context chains downstream
         if "GitHubAgent" in shortlist and "ContentAgent" in shortlist:
-            return ["GitHubAgent", "ContentAgent"]
+            ordered = ["GitHubAgent", "ContentAgent"]
+            for ag in shortlist:
+                if ag not in ordered:
+                    ordered.append(ag)
+            return ordered
 
         return shortlist
+
+    def _extract_sub_instructions(self, raw_input: str, pipeline: List[str]) -> Dict[str, str]:
+        """Extracts tailored sub-instructions for each agent in compound tasks (SPEC.md §2)."""
+        instructions = {ag: raw_input for ag in pipeline}
+        if len(pipeline) <= 1:
+            return instructions
+
+        try:
+            prompt = (
+                f"User Request: {raw_input}\n"
+                f"Shortlisted Pipeline: {json.dumps(pipeline)}\n"
+                "Extract tailored sub-instructions per agent."
+            )
+            resp = self.llm.generate(
+                messages=[{"role": "user", "content": prompt}],
+                system_prompt=SUPERVISOR_ROUTER_PROMPT,
+                temperature=0.2,
+                json_mode=True
+            )
+            data = json.loads(resp)
+            if isinstance(data, dict) and isinstance(data.get("instructions"), dict):
+                for ag in pipeline:
+                    val = data["instructions"].get(ag)
+                    if isinstance(val, str) and val.strip():
+                        instructions[ag] = val.strip()
+                reasoning = data.get("reasoning")
+                if reasoning:
+                    logger.info(f"Supervisor routing plan: {reasoning}")
+        except Exception as e:
+            logger.debug(f"Sub-instruction extraction fallback to raw prompt ({e})")
+
+        return instructions
 
     def execute_workflow(
         self,
@@ -147,12 +183,13 @@ class SupervisorAgent:
                 db.commit()
                 db.refresh(task_record)
 
-            # 2. Determine agent pipeline
+            # 2. Determine agent pipeline and extract sub-instructions
             pipeline = self.route_task(raw_input)
             task_record.set_routed_agents(pipeline)
             db.commit()
             logger.info(f"Task #{task_record.id} routed to pipeline: {pipeline}")
 
+            sub_instructions = self._extract_sub_instructions(raw_input, pipeline)
             step_runs = []
             shared_context: Dict[str, Any] = {}
 
@@ -169,11 +206,12 @@ class SupervisorAgent:
 
             # 3. Execute agents in sequence
             for agent_name in pipeline:
+                agent_input = sub_instructions.get(agent_name, raw_input)
                 started_at = datetime.now(timezone.utc)
                 run_record = AgentRun(
                     task_id=task_record.id,
                     agent_name=agent_name,
-                    input=raw_input,
+                    input=agent_input,
                     status="running",
                     started_at=started_at
                 )
@@ -184,12 +222,12 @@ class SupervisorAgent:
                 step_output = {}
 
                 if agent_name == "AutomationAgent":
-                    step_output = self.automation_agent.execute(raw_input, shared_context)
+                    step_output = self.automation_agent.execute(agent_input, shared_context)
                     run_record.status = "failed"
                     run_record.output = step_output.get("message", "Not implemented")
 
                 elif agent_name == "GitHubAgent":
-                    step_output = self.github_agent.execute(raw_input, shared_context, db=db)
+                    step_output = self.github_agent.execute(agent_input, shared_context, db=db)
                     run_record.status = "completed"
                     run_record.output = step_output.get("summary", "")[:2000]
                     # Pass context to downstream agents
@@ -198,12 +236,12 @@ class SupervisorAgent:
                     shared_context["telemetry"] = step_output.get("telemetry", {})
 
                 elif agent_name == "ContentAgent":
-                    step_output = self.content_agent.execute(raw_input, shared_context, db=db)
+                    step_output = self.content_agent.execute(agent_input, shared_context, db=db)
                     run_record.status = "completed"
                     run_record.output = json.dumps(step_output.get("drafts", {}))
 
                 elif agent_name == "DailyWorkAgent":
-                    step_output = self.daily_work_agent.execute(raw_input, shared_context, db=db)
+                    step_output = self.daily_work_agent.execute(agent_input, shared_context, db=db)
                     run_record.status = "completed"
                     run_record.output = step_output.get("plan", "")[:2000]
 

@@ -113,6 +113,8 @@ class Reminder(Base):
     fired = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime, nullable=False, default=utc_now)
 
+    work_item = relationship("WorkItem")
+
 
 class Approval(Base):
     """The single gate every risky or external action passes through (§11)."""

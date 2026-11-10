@@ -138,13 +138,17 @@
       {% for rem in reminders %}
       <div id="reminder-card-{{ rem.id }}" style="background: {% if rem.fired %}#F3F4F6{% else %}#FFFBEB{% endif %}; border: 1px solid {% if rem.fired %}#D1D5DB{% else %}#FDE68A{% endif %}; padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
         <div>
-          <strong>🔔 Scheduled Check-in</strong>
-          <div style="font-size: 0.85rem; color: {% if rem.fired %}#4B5563{% else %}#92400E{% endif %};">Remind at: <code>{{ rem.remind_at }}</code></div>
+          <strong>🔔 {{ rem.work_item.title if rem.work_item else 'Scheduled Check-in' }}</strong>
+          <div style="font-size: 0.85rem; color: {% if rem.fired %}#4B5563{% else %}#92400E{% endif %};">Remind at: <code>{{ rem.remind_at }}</code> UTC</div>
         </div>
-        <div style="display: flex; align-items: center; gap: 0.5rem;">
+        <div style="display: flex; align-items: center; gap: 0.4rem;">
           <span class="badge {% if rem.fired %}badge-supervisor{% else %}badge-daily{% endif %}">
             {% if rem.fired %}Triggered{% else %}Active{% endif %}
           </span>
+          <form action="/work/reminders/snooze/{{ rem.id }}" method="POST" style="margin: 0;">
+            <input type="hidden" name="minutes" value="60">
+            <button type="submit" class="btn btn-secondary" style="padding: 0.2rem 0.45rem; font-size: 0.75rem;" title="Snooze reminder by 1 hour">⏰ +1h</button>
+          </form>
           <form action="/work/reminders/delete/{{ rem.id }}" method="POST"
                 hx-post="/work/reminders/delete/{{ rem.id }}"
                 hx-target="#reminder-card-{{ rem.id }}"

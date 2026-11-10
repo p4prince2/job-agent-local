@@ -6,7 +6,7 @@ in-process APScheduler reminders, and safety approval management.
 """
 
 from typing import Optional
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from fastapi import FastAPI, Request, Form, Depends, HTTPException, BackgroundTasks
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -14,7 +14,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from apscheduler.schedulers.background import BackgroundScheduler
 
-from config import BASE_DIR
+from config import BASE_DIR, LLM_PROVIDER, OLLAMA_MODEL
 from db.models import Task, AgentRun, Draft, GitHubReview, WorkItem, Reminder, Approval, Log
 from db.session import init_db, get_db, SessionLocal
 from agents.supervisor import default_supervisor
@@ -35,23 +35,28 @@ templates = Jinja2Templates(directory=str(BASE_DIR / "dashboard" / "templates"))
 scheduler = BackgroundScheduler()
 
 
+def _process_due_reminders(db: Session) -> None:
+    """Marks due reminders as fired and emits structured activity logs."""
+    now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
+    due_reminders = db.query(Reminder).filter(
+        Reminder.fired == False,
+        Reminder.remind_at <= now_str
+    ).all()
+
+    for rem in due_reminders:
+        rem.fired = True
+        db.commit()
+        task_title = rem.work_item.title if rem.work_item else "Scheduled Check-in"
+        msg = f"🔔 IN-APP REMINDER: Check-in due for '{task_title}' (Scheduled: {rem.remind_at})"
+        log_event("DailyWorkAgent", msg, level="INFO")
+        logger.info(msg)
+
+
 def check_due_reminders():
     """Background check for due in-app reminders (§3)."""
     db = SessionLocal()
     try:
-        now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
-        due_reminders = db.query(Reminder).filter(
-            Reminder.fired == False,
-            Reminder.remind_at <= now_str
-        ).all()
-
-        for rem in due_reminders:
-            rem.fired = True
-            db.commit()
-            task_title = rem.work_item.title if hasattr(rem, 'work_item') and rem.work_item else "Scheduled Check-in"
-            msg = f"🔔 IN-APP REMINDER: Check-in due for '{task_title}' (Scheduled: {rem.remind_at})"
-            log_event("DailyWorkAgent", msg, level="INFO")
-            logger.info(msg)
+        _process_due_reminders(db)
     except Exception as e:
         logger.error(f"Error checking reminders: {e}")
     finally:
@@ -79,16 +84,27 @@ def on_shutdown():
 
 
 def get_common_context(db: Session, active_tab: str = "chat") -> dict:
-    """Helper providing global variables to templates like approval badge counters and metrics."""
+    """Helper providing global variables to templates like approvals, fired reminders, and metrics."""
+    try:
+        _process_due_reminders(db)
+    except Exception as e:
+        logger.debug(f"Could not process due reminders on request: {e}")
+
     pending_count = len(ApprovalManager.get_pending_approvals(db=db))
+    fired_reminders = db.query(Reminder).filter(Reminder.fired == True).order_by(Reminder.remind_at.asc()).all()
     total_tasks = db.query(Task).count()
     completed_tasks = db.query(Task).filter(Task.status == "completed").count()
     total_drafts = db.query(Draft).count()
     active_work_items = db.query(WorkItem).filter(WorkItem.status != "done").count()
     total_reviews = db.query(GitHubReview).count()
+    active_model = getattr(default_provider, "model", OLLAMA_MODEL)
+
     return {
         "active_tab": active_tab,
         "pending_approvals_count": pending_count,
+        "fired_reminders": fired_reminders,
+        "llm_provider_name": LLM_PROVIDER,
+        "llm_model": active_model,
         "metrics": {
             "total_tasks": total_tasks,
             "completed_tasks": completed_tasks,
@@ -558,6 +574,23 @@ def delete_reminder_endpoint(request: Request, reminder_id: int, db: Session = D
     rem = db.query(Reminder).filter(Reminder.id == reminder_id).first()
     if rem:
         db.delete(rem)
+        db.commit()
+    if request.headers.get("HX-Request"):
+        return HTMLResponse("")
+    return RedirectResponse(url="/work", status_code=303)
+
+
+@app.post("/work/reminders/snooze/{reminder_id}")
+def snooze_reminder_endpoint(
+    request: Request,
+    reminder_id: int,
+    minutes: int = Form(60),
+    db: Session = Depends(get_db)
+):
+    rem = db.query(Reminder).filter(Reminder.id == reminder_id).first()
+    if rem:
+        rem.remind_at = (datetime.now(timezone.utc) + timedelta(minutes=minutes)).strftime("%Y-%m-%d %H:%M")
+        rem.fired = False
         db.commit()
     if request.headers.get("HX-Request"):
         return HTMLResponse("")

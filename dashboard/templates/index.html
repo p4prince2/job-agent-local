@@ -33,7 +33,7 @@
   </div>
   <div class="card" style="padding: 0.75rem 1rem; text-align: center; margin-bottom: 0;">
     <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Model Engine</div>
-    <div style="font-size: 0.85rem; font-weight: 700; color: #059669; margin-top: 0.35rem;">🟢 Ollama llama3.2</div>
+    <div style="font-size: 0.85rem; font-weight: 700; color: #059669; margin-top: 0.35rem;">🟢 {{ (llm_provider_name or 'ollama')|title }} {{ llm_model or 'llama3.2' }}</div>
   </div>
 </div>
 {% endif %}
@@ -56,7 +56,7 @@
         
         <div style="margin-top: 1rem; display: flex; justify-content: space-between; align-items: center;">
           <div style="font-size: 0.8rem; color: var(--text-muted);">
-            Running on <strong>Ollama (llama3.2)</strong> &bull; Zero API Cost
+            Running on <strong>{{ (llm_provider_name or 'ollama')|title }} ({{ llm_model or 'llama3.2' }})</strong> &bull; Zero API Cost
           </div>
           <div style="display: flex; align-items: center; gap: 0.5rem;">
             <span id="dispatch-spinner" class="htmx-indicator" style="font-size: 0.85rem; color: var(--primary);">Dispatching...</span>

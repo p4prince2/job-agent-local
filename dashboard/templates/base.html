@@ -28,7 +28,7 @@
   <header>
     <div class="brand">
       <h1>🤖 Prince AI Team</h1>
-      <span class="badge badge-supervisor">Local Ollama</span>
+      <span class="badge badge-supervisor">{{ (llm_provider_name or 'ollama')|title }}: {{ llm_model or 'llama3.2' }}</span>
     </div>
     <div style="display: flex; align-items: center; gap: 1rem;">
       <nav>
@@ -54,6 +54,34 @@
   </header>
 
   <main>
+    {% if fired_reminders %}
+    <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1.25rem;">
+      {% for rem in fired_reminders %}
+      <div id="reminder-banner-{{ rem.id }}" style="background: var(--warning-bg); border: 1px solid #F59E0B; border-radius: 8px; padding: 0.75rem 1.25rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem;">
+        <div style="color: var(--warning-text); font-size: 0.9rem;">
+          <strong>🔔 In-App Reminder Due:</strong>
+          {{ rem.work_item.title if rem.work_item else 'Scheduled Check-in' }}
+          <span style="font-size: 0.8rem; opacity: 0.85; margin-left: 0.35rem;">(Scheduled: <code>{{ rem.remind_at }}</code> UTC)</span>
+        </div>
+        <div style="display: flex; gap: 0.4rem; align-items: center;">
+          <form action="/work/reminders/snooze/{{ rem.id }}" method="POST"
+                hx-post="/work/reminders/snooze/{{ rem.id }}"
+                hx-target="#reminder-banner-{{ rem.id }}"
+                hx-swap="outerHTML swap:200ms" style="margin: 0;">
+            <input type="hidden" name="minutes" value="60">
+            <button type="submit" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.6rem;">⏰ Snooze 1h</button>
+          </form>
+          <form action="/work/reminders/delete/{{ rem.id }}" method="POST"
+                hx-post="/work/reminders/delete/{{ rem.id }}"
+                hx-target="#reminder-banner-{{ rem.id }}"
+                hx-swap="outerHTML swap:200ms" style="margin: 0;">
+            <button type="submit" class="btn btn-primary" style="font-size: 0.75rem; padding: 0.25rem 0.6rem; background: #D97706;">✓ Dismiss</button>
+          </form>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
     {% block content %}{% endblock %}
   </main>
 

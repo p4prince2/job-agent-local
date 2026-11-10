@@ -445,6 +445,52 @@ Architecture diagram with SQLite and local LLM icons.
         self.assertEqual(count, 0)
         db.close()
 
+    def test_due_reminder_banner_and_snooze(self):
+        from db.session import SessionLocal
+        from db.models import WorkItem, Reminder
+        import uuid
+
+        unique_title = f"Due Mock Test Review {uuid.uuid4().hex[:6]}"
+        db = SessionLocal()
+        w = WorkItem(title=unique_title, project_tag="gate_prep", priority="high", status="todo")
+        db.add(w)
+        db.commit()
+        db.refresh(w)
+
+        rem = Reminder(work_item_id=w.id, remind_at="2020-01-01 00:00", fired=False)
+        db.add(rem)
+        db.commit()
+        db.refresh(rem)
+        rem_id = rem.id
+        w_id = w.id
+        db.close()
+
+        # 1. Opening homepage triggers and surfaces the due reminder banner with linked WorkItem title
+        home_resp = self.client.get("/")
+        self.assertEqual(home_resp.status_code, 200)
+        self.assertIn("In-App Reminder Due:", home_resp.text)
+        self.assertIn(unique_title, home_resp.text)
+
+        # 2. Snooze the reminder via HTMX
+        snooze_resp = self.client.post(
+            f"/work/reminders/snooze/{rem_id}",
+            data={"minutes": "60"},
+            headers={"HX-Request": "true"}
+        )
+        self.assertEqual(snooze_resp.status_code, 200)
+        self.assertEqual(snooze_resp.text, "")
+
+        db = SessionLocal()
+        rem_snoozed = db.query(Reminder).filter(Reminder.id == rem_id).first()
+        self.assertFalse(rem_snoozed.fired)
+        # Clean up test records
+        db.delete(rem_snoozed)
+        work_obj = db.query(WorkItem).filter(WorkItem.id == w_id).first()
+        if work_obj:
+            db.delete(work_obj)
+        db.commit()
+        db.close()
+
 
 if __name__ == "__main__":
     unittest.main()
