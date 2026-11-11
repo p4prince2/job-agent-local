@@ -71,6 +71,20 @@ class TestGitHubAgent(unittest.TestCase):
         self.assertIn("test_files", telemetry)
         self.assertGreater(telemetry.get("python_files_count", 0), 5)
 
+    def test_github_write_action_triggers_approval_gate(self):
+        """Verify write intents (create branch / open PR) queue safety approvals per §11."""
+        from db.models import Approval
+        result = self.agent.execute("Review . and create branch feat/new-tests", db=self.db)
+        self.assertIn("approval_request", result)
+        req = result["approval_request"]
+        self.assertEqual(req["status"], "pending_approval")
+        self.assertEqual(req["action_type"], "github_branch_create")
+
+        app = self.db.query(Approval).filter(Approval.id == req["approval_id"]).first()
+        self.assertIsNotNone(app)
+        self.db.delete(app)
+        self.db.commit()
+
 
 if __name__ == "__main__":
     unittest.main()

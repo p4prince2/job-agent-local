@@ -273,9 +273,11 @@ class ContentAgent:
         filtered_lines = []
         for line in text.split("\n"):
             cleaned = line
-            # Strip banned emojis and hashtags
+            # Strip banned emojis, generic praise, and hashtags
             for pat in BANNED_REPLY_PATTERNS:
                 cleaned = re.sub(pat, "", cleaned)
+            cleaned = re.sub(r"^\s*[!,.:;-]+\s*", "", cleaned)
+            cleaned = re.sub(r"\s{2,}", " ", cleaned).strip()
             filtered_lines.append(cleaned)
         return "\n".join(filtered_lines).strip()
 

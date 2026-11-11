@@ -14,7 +14,10 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from apscheduler.schedulers.background import BackgroundScheduler
 
-from config import BASE_DIR, LLM_PROVIDER, OLLAMA_MODEL
+from config import (
+    BASE_DIR, DATABASE_URL, LLM_PROVIDER, OLLAMA_HOST, OLLAMA_MODEL,
+    GITHUB_USERNAME, LOG_LEVEL, TECH_NICHES, PROJECT_TAGS
+)
 from db.models import Task, AgentRun, Draft, GitHubReview, WorkItem, Reminder, Approval, Log
 from db.session import init_db, get_db, SessionLocal
 from agents.supervisor import default_supervisor
@@ -882,6 +885,46 @@ def clear_logs_endpoint(db: Session = Depends(get_db)):
     db.query(Log).delete()
     db.commit()
     return RedirectResponse(url="/logs", status_code=303)
+
+
+# ----------------------------------------------------------------------
+# 8. System Settings & Runtime Model Diagnostics
+# ----------------------------------------------------------------------
+@app.get("/settings", response_class=HTMLResponse)
+def settings_page(request: Request, db: Session = Depends(get_db)):
+    llm_info = default_provider.check_status()
+    db_display = DATABASE_URL.split("@")[-1] if "@" in DATABASE_URL else DATABASE_URL
+    context = get_common_context(db, active_tab="settings")
+    context.update({
+        "llm_info": llm_info,
+        "ollama_host": OLLAMA_HOST,
+        "github_username": GITHUB_USERNAME,
+        "log_level": LOG_LEVEL,
+        "db_display": db_display,
+        "tech_niches": TECH_NICHES,
+        "project_tags": PROJECT_TAGS,
+        "scheduler_running": scheduler.running
+    })
+    return templates.TemplateResponse(request=request, name="settings.html", context=context)
+
+
+@app.post("/settings/request-model-change")
+def request_model_change_endpoint(
+    new_model: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    target_model = new_model.strip()
+    if not target_model:
+        raise HTTPException(status_code=400, detail="Model name cannot be empty")
+    current_model = getattr(default_provider, "model", OLLAMA_MODEL)
+    ApprovalManager.request_approval(
+        action_type="modify_system",
+        description=f"Switch active runtime LLM model from '{current_model}' to '{target_model}'",
+        payload={"setting": "llm_model", "old_model": current_model, "new_model": target_model},
+        requested_by_agent="SystemSettings",
+        db=db
+    )
+    return RedirectResponse(url="/approvals", status_code=303)
 
 
 if __name__ == "__main__":

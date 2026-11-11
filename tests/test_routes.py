@@ -556,6 +556,46 @@ Architecture diagram with SQLite and local LLM icons.
         db.commit()
         db.close()
 
+    def test_settings_page_and_model_switch_approval(self):
+        from db.session import SessionLocal
+        from db.models import Approval
+        from llm import default_provider
+
+        orig_model = getattr(default_provider, "model", "llama3.2")
+        try:
+            with patch("main.default_provider.check_status", return_value={
+                "online": True,
+                "provider": "ollama",
+                "model": orig_model,
+                "available_models": [orig_model, "qwen3:latest"],
+                "message": "Ollama online"
+            }):
+                settings_resp = self.client.get("/settings")
+                self.assertEqual(settings_resp.status_code, 200)
+                self.assertIn("LLM Engine", settings_resp.text)
+                self.assertIn("qwen3:latest", settings_resp.text)
+
+            req_resp = self.client.post(
+                "/settings/request-model-change",
+                data={"new_model": "qwen3:latest"},
+                follow_redirects=False
+            )
+            self.assertEqual(req_resp.status_code, 303)
+
+            db = SessionLocal()
+            app = db.query(Approval).filter(
+                Approval.action_type == "modify_system",
+                Approval.status == "pending"
+            ).order_by(Approval.id.desc()).first()
+            self.assertIsNotNone(app)
+            app_id = app.id
+            db.close()
+
+            self.client.post(f"/approvals/resolve/{app_id}", data={"decision": "approved"}, headers={"HX-Request": "true"})
+            self.assertEqual(default_provider.model, "qwen3:latest")
+        finally:
+            default_provider.model = orig_model
+
 
 if __name__ == "__main__":
     unittest.main()

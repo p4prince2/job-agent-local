@@ -127,6 +127,14 @@ class ApprovalManager:
                     draft = db.query(Draft).filter(Draft.id == draft_id).first()
                     if draft:
                         draft.status = "approved" if decision == "approved" else "rejected"
+            elif approval.action_type == "modify_system" and decision == "approved":
+                payload = approval.get_payload()
+                if payload.get("setting") == "llm_model":
+                    new_model = payload.get("new_model")
+                    if isinstance(new_model, str) and new_model.strip():
+                        from llm import default_provider
+                        default_provider.model = new_model.strip()
+                        logger.info(f"Runtime system setting applied: active LLM model switched to '{default_provider.model}'")
 
             db.commit()
 

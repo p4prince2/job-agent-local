@@ -60,6 +60,8 @@ class TestContentAgent(unittest.TestCase):
         self.assertNotIn("🚀", cleaned)
         self.assertNotIn("#AI", cleaned)
         self.assertNotIn("#LLM", cleaned)
+        self.assertFalse(cleaned.startswith("!"))
+        self.assertNotIn("  ", cleaned)
 
 
 if __name__ == "__main__":

@@ -117,7 +117,30 @@ Provide your structured architectural review and actionable recommendations.
             db.refresh(review_record)
             logger.info(f"Saved GitHub review #{review_record.id} for {repo_name}")
 
-            return {
+            # Safety Gate (§11): Halt any requested GitHub write operations
+            approval_info = None
+            task_lower = task.lower()
+            write_verbs = [
+                "create branch", "new branch", "create a branch",
+                "open pr", "create pr", "open a pull request", "create a pull request",
+                "push commit", "commit changes", "merge branch"
+            ]
+            if any(verb in task_lower for verb in write_verbs):
+                from approvals.manager import ApprovalManager
+                action_type = (
+                    "github_branch_create" if "branch" in task_lower
+                    else "github_pr_create" if ("pr" in task_lower or "pull request" in task_lower)
+                    else "github_commit"
+                )
+                approval_info = ApprovalManager.request_approval(
+                    action_type=action_type,
+                    description=f"Execute GitHub write action on '{repo_name}': {task[:100]}",
+                    payload={"repo": repo_name, "task": task, "review_id": review_record.id},
+                    requested_by_agent=self.name,
+                    db=db
+                )
+
+            result = {
                 "agent": self.name,
                 "status": "success",
                 "review_id": review_record.id,
@@ -126,6 +149,9 @@ Provide your structured architectural review and actionable recommendations.
                 "summary": review_text,
                 "proposed_branch": "improvements/code-quality-and-tests"
             }
+            if approval_info:
+                result["approval_request"] = approval_info
+            return result
         finally:
             if owns_db:
                 db.close()

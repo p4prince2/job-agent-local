@@ -56,6 +56,25 @@ class TestApprovalManager(unittest.TestCase):
         # Now is_approved must be True
         self.assertTrue(ApprovalManager.is_approved(app_id, db=self.db))
 
+    def test_modify_system_model_cascade(self):
+        """Verify approving modify_system switches default_provider.model cleanly."""
+        from llm import default_provider
+        original_model = getattr(default_provider, "model", "llama3.2")
+        try:
+            res = ApprovalManager.request_approval(
+                action_type="modify_system",
+                description="Switch model to qwen3 for testing",
+                payload={"setting": "llm_model", "new_model": "qwen3"},
+                requested_by_agent="SystemSettings",
+                db=self.db
+            )
+            app_id = res["approval_id"]
+            self.assertEqual(default_provider.model, original_model)
+            ApprovalManager.resolve_approval(app_id, "approved", db=self.db)
+            self.assertEqual(default_provider.model, "qwen3")
+        finally:
+            default_provider.model = original_model
+
 
 if __name__ == "__main__":
     unittest.main()

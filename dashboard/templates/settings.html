@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+
+{% block title %}System Settings | Prince AI Team{% endblock %}
+
+{% block content %}
+<div class="grid-2">
+  <div>
+    <div class="card">
+      <h2>🧠 LLM Engine &amp; Runtime Model</h2>
+      <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem;">
+        Inspect local AI provider health and request runtime model updates under the human safety gate.
+      </p>
+
+      <div style="background: var(--surface-alt); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; margin-bottom: 1.25rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+          <strong>Provider Status</strong>
+          <span class="badge {% if llm_info.online %}badge-content{% else %}badge-automation{% endif %}">
+            {% if llm_info.online %}🟢 ONLINE{% else %}🔴 OFFLINE{% endif %}
+          </span>
+        </div>
+        <div style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.7;">
+          <div><strong>Provider:</strong> <code>{{ (llm_info.provider or llm_provider_name)|upper }}</code></div>
+          <div><strong>Active Model:</strong> <code>{{ llm_model }}</code></div>
+          <div><strong>Endpoint:</strong> <code>{{ llm_info.host or ollama_host }}</code></div>
+          <div><strong>Message:</strong> {{ llm_info.message }}</div>
+        </div>
+      </div>
+
+      {% if llm_info.available_models %}
+      <div style="margin-bottom: 1.25rem;">
+        <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Discovered Local Models ({{ llm_info.available_models|length }}):</span>
+        <div style="display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.5rem;">
+          {% for m in llm_info.available_models %}
+          <span class="badge {% if llm_model in m %}badge-content{% else %}badge-github{% endif %}" style="cursor: pointer;" onclick="document.getElementById('new_model').value='{{ m }}';">
+            {{ m }}
+          </span>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      <form action="/settings/request-model-change" method="POST" style="background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem;">
+        <label for="new_model" style="font-weight: 600; font-size: 0.85rem;">Switch Active Model (Safety Gated per §11)</label>
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">
+          Per SPEC.md §11, modifying runtime system settings queues an approval request in <strong>/approvals</strong> instead of mutating settings unsupervised.
+        </p>
+        <div style="display: flex; gap: 0.5rem; margin-top: 0.65rem;">
+          <input type="text" id="new_model" name="new_model" value="{{ llm_model }}" placeholder="e.g. llama3.2, qwen3, llama3.3" required style="margin-top: 0; flex: 1;">
+          <button type="submit" class="btn btn-primary" style="white-space: nowrap;">🛡️ Request Switch</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div>
+    <div class="card">
+      <h2>⚙️ Environment &amp; Architecture Telemetry</h2>
+      <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem;">
+        Read-only view of central configuration from <code>config.py</code> and background scheduler status.
+      </p>
+
+      <table>
+        <tbody>
+          <tr>
+            <td style="font-weight: 600; width: 170px;">Database URL</td>
+            <td><code>{{ db_display }}</code></td>
+          </tr>
+          <tr>
+            <td style="font-weight: 600;">GitHub Profile</td>
+            <td><a href="https://github.com/{{ github_username }}" target="_blank" rel="noopener noreferrer" style="color: var(--primary);">@{{ github_username }}</a></td>
+          </tr>
+          <tr>
+            <td style="font-weight: 600;">Reminder Scheduler</td>
+            <td>
+              <span class="badge {% if scheduler_running %}badge-content{% else %}badge-daily{% endif %}">
+                {% if scheduler_running %}Running (30s interval){% else %}Idle / On-Demand{% endif %}
+              </span>
+            </td>
+          </tr>
+          <tr>
+            <td style="font-weight: 600;">Log Level</td>
+            <td><code>{{ log_level }}</code></td>
+          </tr>
+          <tr>
+            <td style="font-weight: 600;">Tech Niches (§7)</td>
+            <td>
+              <div style="display: flex; flex-wrap: wrap; gap: 0.3rem;">
+                {% for n in tech_niches %}
+                <span class="badge badge-content" style="font-size: 0.72rem;">{{ n }}</span>
+                {% endfor %}
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td style="font-weight: 600;">Project Tags (§9)</td>
+            <td>
+              <div style="display: flex; flex-wrap: wrap; gap: 0.3rem;">
+                {% for t in project_tags %}
+                <span class="badge badge-daily" style="font-size: 0.72rem;">{{ t }}</span>
+                {% endfor %}
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
