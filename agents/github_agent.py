@@ -68,7 +68,8 @@ class GitHubAgent:
 
             if is_local:
                 local_info = self.github_tools.inspect_local_repo(repo_target)
-                repo_name = f"Local: {repo_target}"
+                resolved_name = Path(repo_target).resolve().name
+                repo_name = f"Local: {resolved_name} ({repo_target})" if repo_target in [".", ".."] else f"Local: {repo_target}"
                 telemetry = local_info
                 readme_text = local_info.get("readme_snippet", "")
             else:
@@ -136,12 +137,18 @@ Provide your structured architectural review and actionable recommendations.
 
         words = task.split()
         for w in words:
-            clean_w = w.strip("`'\",.?!")
-            if clean_w in [".", ".."] or clean_w.startswith("./") or clean_w.startswith(".\\"):
-                return clean_w
+            raw_token = w.strip("`'\",?!")
+            if raw_token in [".", ".."]:
+                return raw_token
+            if raw_token.startswith("./") or raw_token.startswith(".\\"):
+                return raw_token.rstrip(".")
+
+            clean_w = raw_token.strip(".")
+            if not clean_w:
+                continue
             if clean_w.lower() in [Path.cwd().name.lower(), "current", "here", "workspace"]:
                 return "."
-            if Path(clean_w).exists() and clean_w.lower() not in ["the", "a", "in", "for", "to", "at", "and", "my"]:
+            if Path(clean_w).exists() and clean_w.lower() not in ["the", "a", "in", "for", "to", "at", "and", "my", "repo", "repository", "review"]:
                 return clean_w
             if "github.com/" in clean_w:
                 return "/".join(clean_w.rstrip("/").split("github.com/")[-1].split("/")[:2])

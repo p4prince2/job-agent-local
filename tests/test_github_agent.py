@@ -55,6 +55,21 @@ class TestGitHubAgent(unittest.TestCase):
         review = self.db.query(GitHubReview).filter(GitHubReview.id == rev_id).first()
         self.assertIsNotNone(review)
         self.assertTrue(bool(review.human_summary))
+        self.assertIn("(.)", result["repo"])
+
+    def test_target_repo_dot_resolution_and_telemetry(self):
+        """Verify standalone dot paths resolve cleanly without stripping to empty strings."""
+        self.assertEqual(self.agent._resolve_target_repo("Review repository .", None), ".")
+        self.assertEqual(self.agent._resolve_target_repo("Audit ./tests.", None), "./tests")
+        self.assertEqual(self.agent._resolve_target_repo("Inspect ..", None), "..")
+
+        telemetry = self.agent.github_tools.inspect_local_repo(".")
+        self.assertTrue(telemetry.get("is_local"))
+        self.assertTrue(telemetry.get("has_tests"))
+        self.assertIn("has_env_example", telemetry)
+        self.assertIn("has_gitignore", telemetry)
+        self.assertIn("test_files", telemetry)
+        self.assertGreater(telemetry.get("python_files_count", 0), 5)
 
 
 if __name__ == "__main__":

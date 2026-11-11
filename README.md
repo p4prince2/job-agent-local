@@ -131,35 +131,43 @@ Open your browser at:
 
 ## 🖥️ Dashboard Navigation (§13)
 
+Features a responsive **Dark/Light Mode Toggle**, global **In-App Reminder Banners** (with 1-hour Snooze & Dismiss), and one-click **Markdown / Log Exporters** across all views.
+
 | Route | View | Description |
 |---|---|---|
-| `/` | 💬 Console | Task input, Supervisor pipeline visualization, HTMX live updates, executive synthesis. |
-| `/tasks` | 📋 Tasks | Full task history table. |
-| `/drafts` | ✍️ Drafts | Saved drafts filterable by platform (LinkedIn/Medium/X), in-place reading and copy buttons. |
-| `/work` | 📅 Daily Work | Work items grouped by project tag (`gate_prep`, `ai_ml`, `github`, `content`) and active reminders. |
-| `/github` | 🐙 GitHub | Detailed repository telemetry and architectural reports. |
-| `/approvals` | 🛡️ Approvals | Pending action queue with single-click **Approve** and **Reject** buttons. |
-| `/logs` | 📜 Logs | Real-time audit trail filterable by agent. |
+| `/` | 💬 Console | Task input, quick templates (including X URL ingestion), live metrics strip, Supervisor pipeline trace, and HTMX polling. |
+| `/tasks` | 📋 Tasks | Full task history table with status filtering, expandable agent trace accordions, **Re-run**, and `.md` audit export. |
+| `/drafts` | ✍️ Drafts | Saved drafts filterable by platform (`linkedin`, `medium`, `x`, `image_prompt`), approval status, keyword search, publish-approval gating, and bulk `.md` digest export. |
+| `/work` | 📅 Daily Work | Tasks & subtasks filterable by tag (`gate_prep`, `ai_ml`, `github`, `content`) & title search, AI **Decompose**, reminder scheduler/snoozer, and checklist `.md` export. |
+| `/github` | 🐙 GitHub | Interactive repository audit runner, structured telemetry inspector, one-click **Repurpose into Drafts**, and `.md` export. |
+| `/approvals` | 🛡️ Approvals | Safety gate queue with HTMX **Approve / Reject** (auto-cascading to linked drafts), status filters, and audit `.md` export. |
+| `/logs` | 📜 Logs | Structured activity trail filterable by agent, severity level, and text search, with `.txt` export and cleanup. |
 
 ---
 
 ## 🧪 Testing
 
-Run the automated test suites:
+Run all automated test suites cleanly with:
 
 ```bash
-# Approval Gate Tests
+python -m unittest discover tests
+```
+
+Or run individual test modules:
+
+```bash
+# Approval Gate & Draft Cascade Tests
 python -m unittest tests/test_approvals.py
 
-# Supervisor Routing & Automation Stub Tests
+# Supervisor Routing, Compound Sub-Instructions & Automation Stub Tests
 python -m unittest tests/test_supervisor.py
 
 # Content Agent Dual Pipelines & Quality Gate Tests
 python -m unittest tests/test_content_agent.py
 
-# GitHub Agent Read-Only Audit Tests
+# GitHub Agent Read-Only Audit & Local Telemetry Tests
 python -m unittest tests/test_github_agent.py
 
-# FastAPI HTTP Route & Template Tests
+# FastAPI HTTP Routes, HTMX, Exporters & Reminder Tests
 python -m unittest tests/test_routes.py
 ```

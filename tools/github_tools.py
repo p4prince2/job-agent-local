@@ -154,9 +154,10 @@ class GitHubTools:
 
         files = []
         dirs = []
+        allowed_dotfiles = {".github", ".gitignore", ".env.example", ".dockerignore"}
         try:
-            for item in p.iterdir():
-                if item.name.startswith(".") and item.name != ".github":
+            for item in sorted(p.iterdir(), key=lambda x: x.name.lower()):
+                if item.name.startswith(".") and item.name not in allowed_dotfiles:
                     continue
                 if item.is_file():
                     files.append(item.name)
@@ -170,11 +171,27 @@ class GitHubTools:
                     readme_content = readme_path.read_text(encoding="utf-8", errors="replace")[:4000]
                     break
 
-            has_tests = any("test" in d.lower() for d in dirs) or any("test" in f.lower() for f in files)
+            test_files: List[str] = []
+            for d in dirs:
+                if "test" in d.lower():
+                    test_files.extend(
+                        [tf.name for tf in (p / d).glob("*.py") if tf.is_file()]
+                    )
+            test_files.extend([f for f in files if f.startswith("test_") and f.endswith(".py")])
+
+            has_tests = bool(test_files) or any("test" in d.lower() for d in dirs)
+            ci_workflows_dir = p / ".github" / "workflows"
+            ci_workflows = [wf.name for wf in ci_workflows_dir.glob("*.y*ml")] if ci_workflows_dir.exists() else []
+
             deps_files = [f for f in files if f in (
                 "requirements.txt", "pyproject.toml", "setup.py",
                 "package.json", "go.mod", "Cargo.toml"
             )]
+            has_license = any("license" in f.lower() for f in files)
+            has_env_example = ".env.example" in files
+            has_gitignore = ".gitignore" in files
+
+            py_file_count = len(list(p.rglob("*.py"))) if len(dirs) <= 25 else len([f for f in files if f.endswith(".py")])
 
             return {
                 "is_local": True,
@@ -184,7 +201,14 @@ class GitHubTools:
                 "has_readme": bool(readme_content),
                 "readme_snippet": readme_content[:1500],
                 "has_tests": has_tests,
-                "dependency_files": deps_files
+                "test_files": sorted(test_files),
+                "has_ci_workflows": bool(ci_workflows),
+                "ci_workflows": ci_workflows,
+                "dependency_files": deps_files,
+                "has_license": has_license,
+                "has_env_example": has_env_example,
+                "has_gitignore": has_gitignore,
+                "python_files_count": py_file_count
             }
         except Exception as e:
             return {"error": f"Error inspecting local directory: {str(e)}"}
