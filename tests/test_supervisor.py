@@ -71,7 +71,8 @@ class TestSupervisorAgent(unittest.TestCase):
 
     def test_automation_stub_handling(self):
         """Verify tasks meant for Computer Automation fail clearly per §10 instead of silently."""
-        result = default_supervisor.execute_workflow("Open my browser and click a button", db=self.db)
+        with patch.object(default_supervisor.llm, "generate", return_value="Computer Automation Agent is deferred to Phase 2."):
+            result = default_supervisor.execute_workflow("Open my browser and click a button", db=self.db)
         self.assertEqual(result["pipeline"], ["AutomationAgent"])
         
         # Check step status

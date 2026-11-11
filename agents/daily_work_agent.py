@@ -110,14 +110,21 @@ Please provide:
     def _store_work_items(self, user_request: str, response_text: str, db: Session) -> List[Dict[str, Any]]:
         """Extracts task items from LLM text and saves to SQLite work_items table."""
         req_lower = user_request.lower()
-        tag = "gate_prep" if "gate" in req_lower else "ai_ml" if ("ai" in req_lower or "ml" in req_lower) else "github" if "git" in req_lower else "content" if "post" in req_lower else "ai_ml"
+        if "gate" in req_lower:
+            tag = "gate_prep"
+        elif any(k in req_lower for k in ["git", "repo", "github"]):
+            tag = "github"
+        elif any(k in req_lower for k in ["post", "content", "linkedin", "medium", "article", "draft"]):
+            tag = "content"
+        else:
+            tag = "ai_ml"
 
         items = []
         for line in response_text.split("\n"):
             clean = line.strip()
             if (clean.startswith(("- Title:", "Title:", "- **Title:**", "**Title:**")) or
                 (clean.startswith(("-", "*", "1.", "2.", "3.", "4.")) and len(clean) > 15 and ":" in clean)):
-                title_part = clean.split(":")[-1].strip().strip("*\"'")
+                title_part = clean.split(":", 1)[1].strip().strip("*\"'")
                 if 10 < len(title_part) < 120 and title_part not in [it["title"] for it in items]:
                     prio = "high" if "high" in line.lower() else "medium"
                     items.append({"title": title_part, "tag": tag, "priority": prio})

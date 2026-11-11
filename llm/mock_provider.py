@@ -8,6 +8,7 @@ class MockProvider(LLMProvider):
     """Zero-dependency simulated LLM provider."""
 
     def __init__(self, model_name: str = "mock-agent-v1"):
+        self.model = model_name
         self.model_name = model_name
 
     def check_status(self) -> Dict[str, Any]:
@@ -15,7 +16,7 @@ class MockProvider(LLMProvider):
             "online": True,
             "provider": "mock",
             "host": "in-memory",
-            "model": self.model_name,
+            "model": self.model,
             "message": "Offline Mock Provider active (instant responses, zero dependencies)"
         }
 
@@ -81,6 +82,24 @@ Automated unit tests covering critical path routing and security validation.
 ### 6. Recommended Branch Name
 `feat/architecture-optimization`
 """
+
+        # Handle Supervisor JSON router confirmation
+        if json_mode or "valid json object" in (system_prompt or "").lower():
+            return '{"agents": ["ContentAgent"], "reasoning": "Mock JSON routing confirmation", "instructions": {}}'
+
+        # Handle Daily Work planning
+        if "daily work agent" in (system_prompt or "").lower():
+            return """
+### Daily Plan & Time Blocks
+- Title: Focus Block: Core Concept Review & Implementation
+- Title: Deep Work: Practice Benchmark Evaluation Problems
+- Title: Wrap-up: Document Progress & Update Tasks
+"""
+
+        # Handle Subtask Decomposition
+        if "decompose this major goal" in prompt_text:
+            return """- Subtask: Break down core requirements | Priority: high
+- Subtask: Implement and write unit tests | Priority: medium"""
 
         # Default fallback response
         return "Simulated LLM response for: " + prompt_text[:80]

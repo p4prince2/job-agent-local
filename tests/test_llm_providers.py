@@ -31,6 +31,23 @@ class TestLLMProviders(unittest.TestCase):
         )
         self.assertIn("Option 1", text)
 
+    def test_mock_provider_json_and_daily_work(self):
+        import json
+        provider = MockProvider()
+        json_out = provider.generate(
+            messages=[{"role": "user", "content": "Route task"}],
+            system_prompt="Return a valid JSON object",
+            json_mode=True
+        )
+        parsed = json.loads(json_out)
+        self.assertIn("agents", parsed)
+
+        daily_out = provider.generate(
+            messages=[{"role": "user", "content": "Plan my GATE day"}],
+            system_prompt="You are the DAILY WORK AGENT for Prince."
+        )
+        self.assertIn("- Title:", daily_out)
+
 
 if __name__ == "__main__":
     unittest.main()
