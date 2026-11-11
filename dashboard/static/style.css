@@ -4,10 +4,14 @@
   --primary-hover: #4338CA;
   --bg: #F9FAFB;
   --surface: #FFFFFF;
+  --surface-alt: #F8FAFC;
   --text: #111827;
   --text-muted: #6B7280;
   --border: #E5E7EB;
   --border-strong: #D1D5DB;
+  --nav-active-bg: #EEF2FF;
+  --info-bg: #EEF2FF;
+  --info-text: #4F46E5;
   --success-bg: #ECFDF5;
   --success-text: #065F46;
   --warning-bg: #FFFBEB;
@@ -23,10 +27,14 @@
   --primary-hover: #4F46E5;
   --bg: #0B0F19;
   --surface: #1E293B;
+  --surface-alt: #0F172A;
   --text: #F8FAFC;
   --text-muted: #94A3B8;
   --border: #334155;
   --border-strong: #475569;
+  --nav-active-bg: #312E81;
+  --info-bg: #1E1B4B;
+  --info-text: #A5B4FC;
   --success-bg: #064E3B;
   --success-text: #A7F3D0;
   --warning-bg: #78350F;
@@ -94,7 +102,7 @@ header {
 
 .nav-links a:hover, .nav-links a.active {
   color: var(--primary);
-  background-color: #EEF2FF;
+  background-color: var(--nav-active-bg);
 }
 
 .badge-counter {
@@ -218,7 +226,7 @@ th, td {
 }
 
 th {
-  background-color: #F9FAFB;
+  background-color: var(--surface-alt);
   font-weight: 600;
   color: var(--text-muted);
 }

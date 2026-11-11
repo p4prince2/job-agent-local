@@ -491,6 +491,71 @@ Architecture diagram with SQLite and local LLM icons.
         db.commit()
         db.close()
 
+    def test_health_badge_endpoint(self):
+        with patch("main.default_provider.check_status", return_value={
+            "online": True,
+            "model": "llama3.2",
+            "available_models": ["llama3.2", "qwen3"],
+            "message": "Ollama online"
+        }):
+            online_resp = self.client.get("/api/health-badge")
+            self.assertEqual(online_resp.status_code, 200)
+            self.assertIn("badge-content", online_resp.text)
+            self.assertIn("llama3.2", online_resp.text)
+
+        with patch("main.default_provider.check_status", return_value={
+            "online": False,
+            "model": "llama3.2",
+            "message": "Offline"
+        }):
+            offline_resp = self.client.get("/api/health-badge")
+            self.assertEqual(offline_resp.status_code, 200)
+            self.assertIn("badge-automation", offline_resp.text)
+            self.assertIn("Offline", offline_resp.text)
+
+    def test_drafts_clean_form_structure_and_work_completed_at(self):
+        from db.session import SessionLocal
+        from db.models import Draft, WorkItem
+        import uuid
+
+        db = SessionLocal()
+        d = Draft(platform="linkedin", type="original", status="draft", content="Valid non-nested draft form test")
+        db.add(d)
+        w = WorkItem(title=f"Complete Timestamp Check {uuid.uuid4().hex[:6]}", project_tag="ai_ml", priority="medium", status="todo")
+        db.add(w)
+        db.commit()
+        db.refresh(d)
+        db.refresh(w)
+        d_id, w_id = d.id, w.id
+        db.close()
+
+        # Verify drafts page uses non-nested form="draft-form-{id}" association
+        drafts_resp = self.client.get("/drafts")
+        self.assertEqual(drafts_resp.status_code, 200)
+        self.assertIn(f'id="draft-form-{d_id}"', drafts_resp.text)
+        self.assertIn(f'form="draft-form-{d_id}"', drafts_resp.text)
+
+        # Verify toggling work item records and clears completed_at
+        self.client.post(f"/work/toggle/{w_id}", headers={"HX-Request": "true"})
+        db = SessionLocal()
+        done_item = db.query(WorkItem).filter(WorkItem.id == w_id).first()
+        self.assertEqual(done_item.status, "done")
+        self.assertIsNotNone(done_item.completed_at)
+        db.close()
+
+        self.client.post(f"/work/toggle/{w_id}", headers={"HX-Request": "true"})
+        db = SessionLocal()
+        undone_item = db.query(WorkItem).filter(WorkItem.id == w_id).first()
+        self.assertEqual(undone_item.status, "todo")
+        self.assertIsNone(undone_item.completed_at)
+        # Cleanup test artifacts
+        db.delete(undone_item)
+        draft_obj = db.query(Draft).filter(Draft.id == d_id).first()
+        if draft_obj:
+            db.delete(draft_obj)
+        db.commit()
+        db.close()
+
 
 if __name__ == "__main__":
     unittest.main()

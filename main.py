@@ -197,6 +197,22 @@ def system_status_endpoint(db: Session = Depends(get_db)):
     }
 
 
+@app.get("/api/health-badge", response_class=HTMLResponse)
+def health_badge_endpoint():
+    """HTMX partial reporting live LLM provider connectivity."""
+    info = default_provider.check_status()
+    model = info.get("model") or OLLAMA_MODEL
+    if info.get("online"):
+        models_count = len(info.get("available_models", []))
+        title = f"{info.get('message', 'Online')} ({models_count} local models)" if models_count else info.get("message", "Online")
+        return HTMLResponse(
+            f'<span class="badge badge-content" hx-get="/api/health-badge" hx-trigger="every 30s" hx-swap="outerHTML" title="{title}">🟢 {LLM_PROVIDER.title()}: {model}</span>'
+        )
+    return HTMLResponse(
+        f'<span class="badge badge-automation" hx-get="/api/health-badge" hx-trigger="every 30s" hx-swap="outerHTML" title="{info.get("message", "Offline")}">🔴 {LLM_PROVIDER.title()} Offline ({model})</span>'
+    )
+
+
 # ----------------------------------------------------------------------
 # 2. Tasks History
 # ----------------------------------------------------------------------
@@ -492,13 +508,14 @@ def toggle_work_item(request: Request, item_id: int, db: Session = Depends(get_d
     item = db.query(WorkItem).filter(WorkItem.id == item_id).first()
     if item:
         item.status = "done" if item.status != "done" else "todo"
+        item.completed_at = datetime.now(timezone.utc) if item.status == "done" else None
         db.commit()
         db.refresh(item)
     if request.headers.get("HX-Request") and item:
         is_done = item.status == "done"
         checked = "checked" if is_done else ""
         line_style = "text-decoration: line-through; color: var(--text-muted);" if is_done else "font-weight: 600;"
-        bg_style = "#F8FAFC" if is_done else "var(--surface)"
+        bg_style = "var(--surface-alt)" if is_done else "var(--surface)"
         badge_cls = "badge-content" if is_done else "badge-daily"
         subtask_style = "margin-left: 1.5rem; border-left: 3px solid var(--primary);" if item.parent_id else ""
         subtask_prefix = '<span style="color: var(--primary); font-size: 0.85rem; margin-right: 0.2rem;">↳</span>' if item.parent_id else ""

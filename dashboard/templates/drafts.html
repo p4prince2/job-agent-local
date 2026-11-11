@@ -81,43 +81,42 @@
         </div>
       </div>
 
-      <form action="/drafts/update/{{ d.id }}" method="POST">
+      <form id="draft-form-{{ d.id }}" action="/drafts/update/{{ d.id }}" method="POST">
         <textarea name="content" rows="8" style="font-family: inherit; font-size: 0.9rem; width: 100%;" required>{{ d.content }}</textarea>
-        <div style="margin-top: 0.75rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
-          <div style="display: flex; gap: 0.5rem;">
-            <button type="submit" class="btn btn-primary" style="font-size: 0.85rem;">💾 Save Edits</button>
-            <a href="/drafts/export/{{ d.id }}" class="btn btn-secondary" style="font-size: 0.85rem; text-decoration: none;">
-              📥 Export .md
-            </a>
-            <button type="button" class="btn btn-secondary" style="font-size: 0.85rem;" onclick="navigator.clipboard.writeText(this.form.content.value); alert('Copied to clipboard!');">
-              📋 Copy
-            </button>
-          </div>
-          <div style="display: flex; gap: 0.5rem; align-items: center;">
-            {% if d.status == 'draft' %}
-            <form action="/drafts/request-approval/{{ d.id }}" method="POST" style="margin: 0;">
-              <button type="submit" class="btn btn-secondary" style="font-size: 0.8rem; background: #EDE9FE; color: #6D28D9; border: 1px solid #DDD6FE;">
-                🛡️ Request Publish Approval
-              </button>
-            </form>
-            {% elif d.status == 'approved' %}
-            <form action="/drafts/mark-posted/{{ d.id }}" method="POST" style="margin: 0;">
-              <button type="submit" class="btn btn-primary" style="font-size: 0.8rem; background: #059669;">
-                🚀 Mark as Posted Manually
-              </button>
-            </form>
-            {% endif %}
-          </div>
+      </form>
+      <div style="margin-top: 0.75rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+        <div style="display: flex; gap: 0.5rem; align-items: center;">
+          <button type="submit" form="draft-form-{{ d.id }}" class="btn btn-primary" style="font-size: 0.85rem;">💾 Save Edits</button>
+          <a href="/drafts/export/{{ d.id }}" class="btn btn-secondary" style="font-size: 0.85rem; text-decoration: none;">
+            📥 Export .md
+          </a>
+          <button type="button" class="btn btn-secondary" style="font-size: 0.85rem;" onclick="navigator.clipboard.writeText(document.getElementById('draft-form-{{ d.id }}').content.value); const btn = this; btn.textContent = '✅ Copied!'; setTimeout(() => { btn.textContent = '📋 Copy'; }, 1500);">
+            📋 Copy
+          </button>
         </div>
-      </form>
-
-      <form action="/drafts/delete/{{ d.id }}" method="POST"
-            hx-post="/drafts/delete/{{ d.id }}"
-            hx-target="#draft-card-{{ d.id }}"
-            hx-swap="outerHTML swap:300ms"
-            style="margin-top: 0.5rem; display: flex; justify-content: flex-end;" onsubmit="return confirm('Delete this draft?');">
-        <button type="submit" class="btn btn-danger" style="font-size: 0.75rem; padding: 0.3rem 0.6rem;">🗑️ Delete Draft</button>
-      </form>
+        <div style="display: flex; gap: 0.5rem; align-items: center;">
+          {% if d.status == 'draft' %}
+          <form action="/drafts/request-approval/{{ d.id }}" method="POST" style="margin: 0;">
+            <button type="submit" class="btn btn-secondary" style="font-size: 0.8rem; background: var(--info-bg); color: var(--info-text); border: 1px solid var(--border);">
+              🛡️ Request Publish Approval
+            </button>
+          </form>
+          {% elif d.status == 'approved' %}
+          <form action="/drafts/mark-posted/{{ d.id }}" method="POST" style="margin: 0;">
+            <button type="submit" class="btn btn-primary" style="font-size: 0.8rem; background: #059669;">
+              🚀 Mark as Posted Manually
+            </button>
+          </form>
+          {% endif %}
+          <form action="/drafts/delete/{{ d.id }}" method="POST"
+                hx-post="/drafts/delete/{{ d.id }}"
+                hx-target="#draft-card-{{ d.id }}"
+                hx-swap="outerHTML swap:300ms"
+                style="margin: 0;" onsubmit="return confirm('Delete this draft?');">
+            <button type="submit" class="btn btn-danger" style="font-size: 0.8rem; padding: 0.45rem 0.7rem;">🗑️ Delete</button>
+          </form>
+        </div>
+      </div>
     </div>
     {% else %}
     <div style="text-align: center; color: var(--text-muted); padding: 3rem;">

@@ -28,7 +28,7 @@
   <header>
     <div class="brand">
       <h1>🤖 Prince AI Team</h1>
-      <span class="badge badge-supervisor">{{ (llm_provider_name or 'ollama')|title }}: {{ llm_model or 'llama3.2' }}</span>
+      <span class="badge badge-supervisor" hx-get="/api/health-badge" hx-trigger="load" hx-swap="outerHTML">{{ (llm_provider_name or 'ollama')|title }}: {{ llm_model or 'llama3.2' }}</span>
     </div>
     <div style="display: flex; align-items: center; gap: 1rem;">
       <nav>

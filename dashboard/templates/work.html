@@ -12,7 +12,7 @@
       </div>
 
       <!-- Quick Task Creation Form -->
-      <form action="/work/create" method="POST" style="margin-bottom: 1.25rem; background: #F8FAFC; padding: 1rem; border-radius: 6px; border: 1px solid var(--border);">
+      <form action="/work/create" method="POST" style="margin-bottom: 1.25rem; background: var(--surface-alt); padding: 1rem; border-radius: 6px; border: 1px solid var(--border);">
         <div style="font-weight: 600; font-size: 0.85rem; margin-bottom: 0.5rem;">➕ Add New Task</div>
         <input type="text" name="title" placeholder="Task title (e.g. Solve 10 Graph Theory PYQs)" required style="margin-top: 0;">
         <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 0.5rem; margin-top: 0.5rem;">
@@ -65,7 +65,7 @@
 
       <div style="display: flex; flex-direction: column; gap: 0.75rem;">
         {% for item in work_items %}
-        <div id="work-item-{{ item.id }}" style="border: 1px solid var(--border); padding: 0.75rem; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; background: {% if item.status == 'done' %}#F8FAFC{% else %}var(--surface){% endif %}; {% if item.parent_id %}margin-left: 1.5rem; border-left: 3px solid var(--primary);{% endif %}">
+        <div id="work-item-{{ item.id }}" style="border: 1px solid var(--border); padding: 0.75rem; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; background: {% if item.status == 'done' %}var(--surface-alt){% else %}var(--surface){% endif %}; {% if item.parent_id %}margin-left: 1.5rem; border-left: 3px solid var(--primary);{% endif %}">
           <div style="display: flex; align-items: center; gap: 0.75rem;">
             <form action="/work/toggle/{{ item.id }}" method="POST"
                   hx-post="/work/toggle/{{ item.id }}"
@@ -136,10 +136,10 @@
       </form>
 
       {% for rem in reminders %}
-      <div id="reminder-card-{{ rem.id }}" style="background: {% if rem.fired %}#F3F4F6{% else %}#FFFBEB{% endif %}; border: 1px solid {% if rem.fired %}#D1D5DB{% else %}#FDE68A{% endif %}; padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
+      <div id="reminder-card-{{ rem.id }}" style="background: {% if rem.fired %}var(--surface-alt){% else %}var(--warning-bg){% endif %}; border: 1px solid {% if rem.fired %}var(--border-strong){% else %}#FDE68A{% endif %}; padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
         <div>
           <strong>🔔 {{ rem.work_item.title if rem.work_item else 'Scheduled Check-in' }}</strong>
-          <div style="font-size: 0.85rem; color: {% if rem.fired %}#4B5563{% else %}#92400E{% endif %};">Remind at: <code>{{ rem.remind_at }}</code> UTC</div>
+          <div style="font-size: 0.85rem; color: {% if rem.fired %}var(--text-muted){% else %}var(--warning-text){% endif %};">Remind at: <code>{{ rem.remind_at }}</code> UTC</div>
         </div>
         <div style="display: flex; align-items: center; gap: 0.4rem;">
           <span class="badge {% if rem.fired %}badge-supervisor{% else %}badge-daily{% endif %}">

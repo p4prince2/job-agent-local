@@ -4,8 +4,8 @@
 
 {% block content %}
 {% if pending_approvals_count and pending_approvals_count > 0 %}
-<div style="background: #FEF2F2; border: 1px solid #F87171; border-radius: 8px; padding: 0.85rem 1.25rem; margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: center;">
-  <div style="color: #991B1B; font-size: 0.9rem;">
+<div style="background: var(--danger-bg); border: 1px solid #F87171; border-radius: 8px; padding: 0.85rem 1.25rem; margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: center;">
+  <div style="color: var(--danger-text); font-size: 0.9rem;">
     <strong>⚠️ {{ pending_approvals_count }} Action{{ 's' if pending_approvals_count > 1 else '' }} Awaiting Approval:</strong>
     An agent requested a sensitive or destructive action that requires your explicit confirmation before proceeding.
   </div>
