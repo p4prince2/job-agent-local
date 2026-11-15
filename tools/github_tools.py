@@ -193,6 +193,25 @@ class GitHubTools:
 
             py_file_count = len(list(p.rglob("*.py"))) if len(dirs) <= 25 else len([f for f in files if f.endswith(".py")])
 
+            git_branch = None
+            git_commit = None
+            git_dir = p / ".git"
+            if git_dir.exists():
+                head_file = git_dir / "HEAD"
+                if head_file.exists():
+                    try:
+                        head_content = head_file.read_text(encoding="utf-8").strip()
+                        if head_content.startswith("ref: refs/heads/"):
+                            git_branch = head_content.split("ref: refs/heads/")[-1].strip()
+                            branch_ref_file = git_dir / "refs" / "heads" / git_branch
+                            if branch_ref_file.exists():
+                                git_commit = branch_ref_file.read_text(encoding="utf-8").strip()[:8]
+                        else:
+                            git_branch = "HEAD (detached)"
+                            git_commit = head_content[:8]
+                    except Exception:
+                        pass
+
             return {
                 "is_local": True,
                 "path": str(p),
@@ -208,7 +227,9 @@ class GitHubTools:
                 "has_license": has_license,
                 "has_env_example": has_env_example,
                 "has_gitignore": has_gitignore,
-                "python_files_count": py_file_count
+                "python_files_count": py_file_count,
+                "git_branch": git_branch,
+                "git_commit": git_commit
             }
         except Exception as e:
             return {"error": f"Error inspecting local directory: {str(e)}"}

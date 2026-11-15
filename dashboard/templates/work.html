@@ -15,7 +15,7 @@
       <form action="/work/create" method="POST" style="margin-bottom: 1.25rem; background: var(--surface-alt); padding: 1rem; border-radius: 6px; border: 1px solid var(--border);">
         <div style="font-weight: 600; font-size: 0.85rem; margin-bottom: 0.5rem;">➕ Add New Task</div>
         <input type="text" name="title" placeholder="Task title (e.g. Solve 10 Graph Theory PYQs)" required style="margin-top: 0;">
-        <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 0.5rem; margin-top: 0.5rem;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 0.5rem; margin-top: 0.5rem;">
           <select name="project_tag">
             <option value="gate_prep">GATE Prep</option>
             <option value="ai_ml">AI/ML Projects</option>
@@ -27,6 +27,7 @@
             <option value="medium" selected>Medium Priority</option>
             <option value="low">Low Priority</option>
           </select>
+          <input type="text" name="due_date" placeholder="Due (YYYY-MM-DD)" style="margin: 0; font-size: 0.85rem;">
           <button type="submit" class="btn btn-primary" style="font-size: 0.85rem;">Add</button>
         </div>
       </form>
@@ -35,11 +36,11 @@
       <div style="background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 1rem; display: flex; flex-direction: column; gap: 0.6rem;">
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
           <div style="display: flex; gap: 0.35rem; flex-wrap: wrap;">
-            <a href="/work?tag=all{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.55rem; {% if selected_tag == 'all' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">All</a>
-            <a href="/work?tag=gate_prep{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.55rem; {% if selected_tag == 'gate_prep' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">GATE Prep</a>
-            <a href="/work?tag=ai_ml{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.55rem; {% if selected_tag == 'ai_ml' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">AI/ML</a>
-            <a href="/work?tag=github{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.55rem; {% if selected_tag == 'github' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">GitHub</a>
-            <a href="/work?tag=content{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.55rem; {% if selected_tag == 'content' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">Content</a>
+            <a href="/work?tag=all{% if selected_status != 'all' %}&status={{ selected_status }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.55rem; {% if selected_tag == 'all' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">All Tags</a>
+            <a href="/work?tag=gate_prep{% if selected_status != 'all' %}&status={{ selected_status }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.55rem; {% if selected_tag == 'gate_prep' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">GATE Prep</a>
+            <a href="/work?tag=ai_ml{% if selected_status != 'all' %}&status={{ selected_status }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.55rem; {% if selected_tag == 'ai_ml' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">AI/ML</a>
+            <a href="/work?tag=github{% if selected_status != 'all' %}&status={{ selected_status }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.55rem; {% if selected_tag == 'github' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">GitHub</a>
+            <a href="/work?tag=content{% if selected_status != 'all' %}&status={{ selected_status }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.55rem; {% if selected_tag == 'content' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">Content</a>
           </div>
           <div style="display: flex; gap: 0.4rem; align-items: center;">
             <a href="/work/export?tag={{ selected_tag }}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.6rem; text-decoration: none;" title="Download tasks as Markdown checklist">
@@ -53,14 +54,23 @@
           </div>
         </div>
 
-        <form action="/work" method="GET" style="display: flex; gap: 0.4rem; margin: 0;">
-          <input type="hidden" name="tag" value="{{ selected_tag }}">
-          <input type="text" name="q" value="{{ search_query }}" placeholder="Filter work items by title..." style="margin: 0; font-size: 0.82rem; height: 30px;">
-          <button type="submit" class="btn btn-secondary" style="font-size: 0.75rem; height: 30px; padding: 0 0.6rem;">Filter</button>
-          {% if search_query %}
-          <a href="/work?tag={{ selected_tag }}" class="btn btn-secondary" style="font-size: 0.75rem; height: 30px; padding: 0 0.6rem; text-decoration: none; display: flex; align-items: center;">Reset</a>
-          {% endif %}
-        </form>
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+          <form action="/work" method="GET" style="display: flex; gap: 0.4rem; margin: 0; flex: 1; max-width: 360px;">
+            <input type="hidden" name="tag" value="{{ selected_tag }}">
+            <input type="hidden" name="status" value="{{ selected_status }}">
+            <input type="text" name="q" value="{{ search_query }}" placeholder="Filter work items by title..." style="margin: 0; font-size: 0.82rem; height: 30px;">
+            <button type="submit" class="btn btn-secondary" style="font-size: 0.75rem; height: 30px; padding: 0 0.6rem;">Filter</button>
+            {% if search_query %}
+            <a href="/work?tag={{ selected_tag }}&status={{ selected_status }}" class="btn btn-secondary" style="font-size: 0.75rem; height: 30px; padding: 0 0.6rem; text-decoration: none; display: flex; align-items: center;">Reset</a>
+            {% endif %}
+          </form>
+          <div style="display: flex; gap: 0.3rem; align-items: center;">
+            <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Status:</span>
+            <a href="/work?status=all{% if selected_tag != 'all' %}&tag={{ selected_tag }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.2rem 0.5rem; {% if selected_status == 'all' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">All</a>
+            <a href="/work?status=todo{% if selected_tag != 'all' %}&tag={{ selected_tag }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.2rem 0.5rem; {% if selected_status == 'todo' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">Todo</a>
+            <a href="/work?status=done{% if selected_tag != 'all' %}&tag={{ selected_tag }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.2rem 0.5rem; {% if selected_status == 'done' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">Done</a>
+          </div>
+        </div>
       </div>
 
       <div style="display: flex; flex-direction: column; gap: 0.75rem;">
@@ -82,6 +92,11 @@
                 {{ item.project_tag }}
               </span>
               <span style="font-size: 0.75rem; color: var(--text-muted); margin-left: 0.4rem;">Priority: {{ item.priority }}</span>
+              {% if item.due_date %}
+              <span class="badge" style="font-size: 0.7rem; background: var(--bg); border: 1px solid var(--border); color: var(--text-main); margin-left: 0.4rem;">
+                📅 Due: {{ item.due_date }}
+              </span>
+              {% endif %}
               {% if item.parent_id %}
               <span style="font-size: 0.7rem; color: var(--primary); margin-left: 0.4rem;">[Subtask of #{{ item.parent_id }}]</span>
               {% endif %}

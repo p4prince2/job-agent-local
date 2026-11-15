@@ -293,3 +293,68 @@ class ContentAgent:
             if header.lower() in first_line or header_clean in first_line:
                 return "\n".join(lines[1:]).strip()
         return ""
+
+    def generate_variation(
+        self,
+        draft_id: int,
+        db: Session,
+        angle_hint: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Generates an alternative perspective or hook variation for an existing draft."""
+        original = db.query(Draft).filter(Draft.id == draft_id).first()
+        if not original:
+            raise ValueError(f"Draft #{draft_id} not found")
+
+        platform = original.platform
+        prompt = f"""You are the CONTENT AGENT for Prince's AI team.
+Prince's technical niches: {', '.join(TECH_NICHES)}.
+
+Generate a distinct ALTERNATIVE VARIATION of the following {platform.upper()} draft.
+Provide a fresh hook, counter-intuitive angle, or different emphasis while preserving technical accuracy and peer-level depth.
+Strictly adhere to the platform guidelines (no generic praise, no hashtags or decorative emojis if reply, 6-part structure if original post).
+
+Original Draft Content:
+{original.content}
+"""
+        if angle_hint:
+            prompt += f"\nAngle Preference / Hint: {angle_hint}\n"
+
+        system_prompt = REPLY_PIPELINE_PROMPT if original.type == "reply" else ORIGINAL_POST_PROMPT
+        response_text = self.llm.generate(
+            messages=[{"role": "user", "content": prompt}],
+            system_prompt=system_prompt,
+            temperature=0.75
+        )
+
+        if original.type == "reply":
+            cleaned_text = self._apply_reply_quality_gate(response_text)
+        elif platform == "linkedin":
+            cleaned_text = self._extract_section(response_text, "1. LinkedIn Post") or response_text
+        elif platform == "medium":
+            cleaned_text = self._extract_section(response_text, "2. Expanded Medium Article") or response_text
+        elif platform == "x":
+            cleaned_text = self._extract_section(response_text, "3. Condensed X (Twitter) Post") or response_text[:280]
+        elif platform == "image_prompt":
+            cleaned_text = self._extract_section(response_text, "4. Cover Image Generation Prompt") or response_text
+        else:
+            cleaned_text = response_text
+
+        new_draft = Draft(
+            platform=original.platform,
+            type=f"{original.type}_variation",
+            status="draft",
+            content=cleaned_text.strip(),
+            source_ref=original.source_ref or f"Variation of Draft #{original.id}"
+        )
+        db.add(new_draft)
+        db.commit()
+        db.refresh(new_draft)
+
+        logger.info(f"Generated variation Draft #{new_draft.id} for original Draft #{original.id} ({platform})")
+        return {
+            "status": "success",
+            "original_id": original.id,
+            "new_draft_id": new_draft.id,
+            "platform": new_draft.platform,
+            "content": new_draft.content
+        }

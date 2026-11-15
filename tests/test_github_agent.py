@@ -69,6 +69,8 @@ class TestGitHubAgent(unittest.TestCase):
         self.assertIn("has_env_example", telemetry)
         self.assertIn("has_gitignore", telemetry)
         self.assertIn("test_files", telemetry)
+        self.assertIn("git_branch", telemetry)
+        self.assertEqual(telemetry.get("git_branch"), "main")
         self.assertGreater(telemetry.get("python_files_count", 0), 5)
 
     def test_github_write_action_triggers_approval_gate(self):

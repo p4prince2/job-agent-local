@@ -85,8 +85,13 @@
         <textarea name="content" rows="8" style="font-family: inherit; font-size: 0.9rem; width: 100%;" required>{{ d.content }}</textarea>
       </form>
       <div style="margin-top: 0.75rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
-        <div style="display: flex; gap: 0.5rem; align-items: center;">
+        <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
           <button type="submit" form="draft-form-{{ d.id }}" class="btn btn-primary" style="font-size: 0.85rem;">💾 Save Edits</button>
+          <form action="/drafts/re-roll/{{ d.id }}" method="POST" style="margin: 0;">
+            <button type="submit" class="btn btn-secondary" style="font-size: 0.85rem;" title="Generate an alternative hook or perspective variation with AI">
+              🔄 Re-roll Angle
+            </button>
+          </form>
           <a href="/drafts/export/{{ d.id }}" class="btn btn-secondary" style="font-size: 0.85rem; text-decoration: none;">
             📥 Export .md
           </a>

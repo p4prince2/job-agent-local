@@ -64,5 +64,29 @@ class TestContentAgent(unittest.TestCase):
         self.assertNotIn("  ", cleaned)
 
 
+    def test_generate_variation(self):
+        """Verify generating an alternative variation / re-roll creates a new linked draft."""
+        orig_draft = Draft(
+            platform="linkedin",
+            type="original",
+            status="draft",
+            content="Original deep dive into fine-tuning parameters and loss curves.",
+            source_ref="Test Source #1"
+        )
+        self.db.add(orig_draft)
+        self.db.commit()
+        self.db.refresh(orig_draft)
+
+        res = self.agent.generate_variation(orig_draft.id, db=self.db, angle_hint="Focus on production latency")
+        self.assertEqual(res["status"], "success")
+        self.assertEqual(res["original_id"], orig_draft.id)
+        
+        var_draft = self.db.query(Draft).filter(Draft.id == res["new_draft_id"]).first()
+        self.assertIsNotNone(var_draft)
+        self.assertEqual(var_draft.platform, "linkedin")
+        self.assertEqual(var_draft.type, "original_variation")
+        self.assertIn("Fine-tuning vs RAG", var_draft.content)
+
+
 if __name__ == "__main__":
     unittest.main()

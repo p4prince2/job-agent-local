@@ -596,6 +596,56 @@ Architecture diagram with SQLite and local LLM icons.
         finally:
             default_provider.model = orig_model
 
+    def test_draft_reroll_and_variation_endpoint(self):
+        from db.session import SessionLocal
+        from db.models import Draft
+
+        db = SessionLocal()
+        d = Draft(platform="linkedin", type="original", status="draft", content="Initial draft regarding latency optimizations.")
+        db.add(d)
+        db.commit()
+        db.refresh(d)
+        d_id = d.id
+        db.close()
+
+        resp = self.client.post(f"/drafts/re-roll/{d_id}", follow_redirects=False)
+        self.assertEqual(resp.status_code, 303)
+        self.assertEqual(resp.headers["location"], "/drafts")
+
+        db = SessionLocal()
+        variations = db.query(Draft).filter(Draft.type == "original_variation").all()
+        self.assertTrue(len(variations) > 0)
+        self.assertEqual(variations[-1].platform, "linkedin")
+        db.close()
+
+    def test_work_status_filter_and_due_date(self):
+        import uuid
+        from db.session import SessionLocal
+        from db.models import WorkItem
+
+        uid = uuid.uuid4().hex[:6]
+        due_val = "2026-12-31"
+        create_resp = self.client.post("/work/create", data={
+            "title": f"Due Date Task {uid}",
+            "project_tag": "gate_prep",
+            "priority": "high",
+            "due_date": due_val
+        }, follow_redirects=False)
+        self.assertEqual(create_resp.status_code, 303)
+
+        # Check /work page contains due date and status filters
+        page_resp = self.client.get("/work?status=todo")
+        self.assertEqual(page_resp.status_code, 200)
+        self.assertIn(f"Due Date Task {uid}", page_resp.text)
+        self.assertIn(due_val, page_resp.text)
+        self.assertIn("status=todo", page_resp.text)
+        self.assertIn("status=done", page_resp.text)
+
+        # Export check includes due date
+        export_resp = self.client.get("/work/export?tag=gate_prep")
+        self.assertEqual(export_resp.status_code, 200)
+        self.assertIn(f"(Due: {due_val})", export_resp.text)
+
 
 if __name__ == "__main__":
     unittest.main()

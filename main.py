@@ -421,6 +421,21 @@ def mark_draft_posted_endpoint(draft_id: int, db: Session = Depends(get_db)):
     return RedirectResponse(url="/drafts", status_code=303)
 
 
+@app.post("/drafts/re-roll/{draft_id}")
+def reroll_draft_endpoint(
+    draft_id: int,
+    angle_hint: Optional[str] = Form(None),
+    db: Session = Depends(get_db)
+):
+    """Re-rolls / crafts an alternative angle or hook variation for an existing draft."""
+    try:
+        res = default_supervisor.content_agent.generate_variation(draft_id=draft_id, db=db, angle_hint=angle_hint)
+        logger.info(f"Re-rolled draft #{draft_id} -> new variation #{res.get('new_draft_id')}")
+    except Exception as e:
+        logger.error(f"Failed to re-roll draft #{draft_id}: {e}")
+    return RedirectResponse(url="/drafts", status_code=303)
+
+
 # ----------------------------------------------------------------------
 # 4. Daily Work & Reminders (CRUD)
 # ----------------------------------------------------------------------
@@ -428,12 +443,15 @@ def mark_draft_posted_endpoint(draft_id: int, db: Session = Depends(get_db)):
 def work_page(
     request: Request,
     tag: Optional[str] = None,
+    status: Optional[str] = None,
     q: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
     query = db.query(WorkItem)
     if tag and tag != "all":
         query = query.filter(WorkItem.project_tag == tag.lower())
+    if status and status != "all":
+        query = query.filter(WorkItem.status == status.lower())
     if q and q.strip():
         search_term = f"%{q.strip()}%"
         query = query.filter(WorkItem.title.ilike(search_term))
@@ -445,6 +463,7 @@ def work_page(
         "work_items": work_items,
         "reminders": reminders,
         "selected_tag": tag or "all",
+        "selected_status": status or "all",
         "search_query": q or ""
     })
     return templates.TemplateResponse(request=request, name="work.html", context=context)
@@ -467,7 +486,8 @@ def export_work_items_endpoint(tag: Optional[str] = None, db: Session = Depends(
         status_box = "[x]" if it.status == "done" else "[ ]"
         indent = "  " if it.parent_id else ""
         sub_info = f" (Subtask of #{it.parent_id})" if it.parent_id else ""
-        body += f"{indent}- {status_box} **{it.title}** `[{it.project_tag.upper()}]` `[{it.priority.upper()}]`{sub_info}\n"
+        due_str = f" `(Due: {it.due_date})`" if it.due_date else ""
+        body += f"{indent}- {status_box} **{it.title}** `[{it.project_tag.upper()}]` `[{it.priority.upper()}]`{due_str}{sub_info}\n"
 
     return Response(
         content=body,
@@ -493,11 +513,12 @@ def create_work_item_endpoint(
     due_date: Optional[str] = Form(None),
     db: Session = Depends(get_db)
 ):
+    clean_due = due_date.strip() if due_date and due_date.strip() else None
     item = WorkItem(
         title=title.strip(),
         project_tag=project_tag,
         priority=priority,
-        due_date=due_date,
+        due_date=clean_due,
         status="todo",
         created_at=datetime.now(timezone.utc)
     )
@@ -523,6 +544,7 @@ def toggle_work_item(request: Request, item_id: int, db: Session = Depends(get_d
         subtask_style = "margin-left: 1.5rem; border-left: 3px solid var(--primary);" if item.parent_id else ""
         subtask_prefix = '<span style="color: var(--primary); font-size: 0.85rem; margin-right: 0.2rem;">↳</span>' if item.parent_id else ""
         subtask_note = f'<span style="font-size: 0.7rem; color: var(--primary); margin-left: 0.4rem;">[Subtask of #{item.parent_id}]</span>' if item.parent_id else ""
+        due_chip = f'<span class="badge" style="font-size: 0.7rem; background: var(--bg); border: 1px solid var(--border); color: var(--text-main); margin-left: 0.4rem;">📅 {item.due_date}</span>' if item.due_date else ""
         return HTMLResponse(f"""
         <div id="work-item-{item.id}" style="border: 1px solid var(--border); padding: 0.75rem; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; background: {bg_style}; {subtask_style}">
           <div style="display: flex; align-items: center; gap: 0.75rem;">
@@ -540,6 +562,7 @@ def toggle_work_item(request: Request, item_id: int, db: Session = Depends(get_d
                 {item.project_tag}
               </span>
               <span style="font-size: 0.75rem; color: var(--text-muted); margin-left: 0.4rem;">Priority: {item.priority}</span>
+              {due_chip}
               {subtask_note}
             </div>
           </div>
