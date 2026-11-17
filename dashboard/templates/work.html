@@ -93,9 +93,19 @@
               </span>
               <span style="font-size: 0.75rem; color: var(--text-muted); margin-left: 0.4rem;">Priority: {{ item.priority }}</span>
               {% if item.due_date %}
-              <span class="badge" style="font-size: 0.7rem; background: var(--bg); border: 1px solid var(--border); color: var(--text-main); margin-left: 0.4rem;">
-                📅 Due: {{ item.due_date }}
-              </span>
+                {% if item.status != 'done' and item.due_date < today_date %}
+                <span class="badge badge-automation" style="font-size: 0.7rem; font-weight: 700; margin-left: 0.4rem;">
+                  ⚠️ Overdue: {{ item.due_date }}
+                </span>
+                {% elif item.status != 'done' and item.due_date == today_date %}
+                <span class="badge badge-daily" style="font-size: 0.7rem; font-weight: 700; margin-left: 0.4rem;">
+                  🚨 Due Today
+                </span>
+                {% else %}
+                <span class="badge" style="font-size: 0.7rem; background: var(--bg); border: 1px solid var(--border); color: var(--text-main); margin-left: 0.4rem;">
+                  📅 Due: {{ item.due_date }}
+                </span>
+                {% endif %}
               {% endif %}
               {% if item.parent_id %}
               <span style="font-size: 0.7rem; color: var(--primary); margin-left: 0.4rem;">[Subtask of #{{ item.parent_id }}]</span>

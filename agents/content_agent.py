@@ -358,3 +358,80 @@ Original Draft Content:
             "platform": new_draft.platform,
             "content": new_draft.content
         }
+
+    def adapt_draft_platform(
+        self,
+        draft_id: int,
+        target_platform: str,
+        db: Session
+    ) -> Dict[str, Any]:
+        """Cross-adapts an existing draft into another platform's optimal format (LinkedIn, Medium, X, image_prompt)."""
+        original = db.query(Draft).filter(Draft.id == draft_id).first()
+        if not original:
+            raise ValueError(f"Draft #{draft_id} not found")
+
+        valid_platforms = ["linkedin", "medium", "x", "image_prompt"]
+        target = target_platform.lower().strip()
+        if target not in valid_platforms:
+            raise ValueError(f"Invalid target platform '{target}'. Must be one of {valid_platforms}")
+
+        prompt = f"""You are the CONTENT AGENT for Prince's personal AI team.
+Prince's technical niches: {', '.join(TECH_NICHES)}.
+
+Adapt this draft from {original.platform.upper()} into a dedicated {target.upper()} format.
+Target Platform: {target.upper()}
+
+Rules for target format:
+- linkedin: Professional peer tone, 6-part structure (Hook, Context, Explanation, Personal Take, Forward Implication, Closing Question), authentic engineering voice.
+- medium: Expanded in-depth technical essay, thorough explanation of trade-offs, structured sections with code/architecture considerations.
+- x: Punchy, under 280 characters, immediate technical insight, 0 hashtags, 0 decorative emojis.
+- image_prompt: Clean visual prompt describing an architectural diagram, flowchart, or conceptual schematic visual for this topic.
+
+Source Content ({original.platform.upper()}):
+{original.content}
+"""
+        response_text = self.llm.generate(
+            messages=[{"role": "user", "content": prompt}],
+            system_prompt="You are an expert technical content adaptation specialist converting engineering ideas across formats.",
+            temperature=0.7
+        )
+
+        cleaned_text = response_text.strip()
+        if target == "linkedin":
+            extracted = self._extract_section(response_text, "1. LinkedIn Post") or self._extract_section(response_text, "LinkedIn Post")
+            if extracted:
+                cleaned_text = extracted
+        elif target == "medium":
+            extracted = self._extract_section(response_text, "2. Expanded Medium Article") or self._extract_section(response_text, "Expanded Medium Article")
+            if extracted:
+                cleaned_text = extracted
+        elif target == "x":
+            extracted = self._extract_section(response_text, "3. Condensed X (Twitter) Post") or self._extract_section(response_text, "Condensed X")
+            if extracted:
+                cleaned_text = extracted[:280]
+            else:
+                cleaned_text = self._apply_reply_quality_gate(cleaned_text)[:280]
+        elif target == "image_prompt":
+            extracted = self._extract_section(response_text, "4. Cover Image Generation Prompt") or self._extract_section(response_text, "Cover Image")
+            if extracted:
+                cleaned_text = extracted
+
+        new_draft = Draft(
+            platform=target,
+            type=f"adapted_from_{original.platform}",
+            status="draft",
+            content=cleaned_text.strip(),
+            source_ref=original.source_ref or f"Adapted from Draft #{original.id}"
+        )
+        db.add(new_draft)
+        db.commit()
+        db.refresh(new_draft)
+
+        logger.info(f"Adapted Draft #{original.id} ({original.platform}) -> New Draft #{new_draft.id} ({target})")
+        return {
+            "status": "success",
+            "original_id": original.id,
+            "new_draft_id": new_draft.id,
+            "target_platform": target,
+            "content": new_draft.content
+        }

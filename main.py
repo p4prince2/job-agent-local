@@ -101,6 +101,7 @@ def get_common_context(db: Session, active_tab: str = "chat") -> dict:
     active_work_items = db.query(WorkItem).filter(WorkItem.status != "done").count()
     total_reviews = db.query(GitHubReview).count()
     active_model = getattr(default_provider, "model", OLLAMA_MODEL)
+    today_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
     return {
         "active_tab": active_tab,
@@ -108,6 +109,7 @@ def get_common_context(db: Session, active_tab: str = "chat") -> dict:
         "fired_reminders": fired_reminders,
         "llm_provider_name": LLM_PROVIDER,
         "llm_model": active_model,
+        "today_date": today_date,
         "metrics": {
             "total_tasks": total_tasks,
             "completed_tasks": completed_tasks,
@@ -436,6 +438,25 @@ def reroll_draft_endpoint(
     return RedirectResponse(url="/drafts", status_code=303)
 
 
+@app.post("/drafts/adapt/{draft_id}")
+def adapt_draft_endpoint(
+    draft_id: int,
+    target_platform: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    """Cross-adapts an existing draft into another platform (linkedin, medium, x, image_prompt)."""
+    try:
+        res = default_supervisor.content_agent.adapt_draft_platform(
+            draft_id=draft_id,
+            target_platform=target_platform,
+            db=db
+        )
+        logger.info(f"Adapted draft #{draft_id} to #{res.get('new_draft_id')} ({target_platform})")
+    except Exception as e:
+        logger.error(f"Failed to adapt draft #{draft_id} to {target_platform}: {e}")
+    return RedirectResponse(url="/drafts", status_code=303)
+
+
 # ----------------------------------------------------------------------
 # 4. Daily Work & Reminders (CRUD)
 # ----------------------------------------------------------------------
@@ -544,7 +565,16 @@ def toggle_work_item(request: Request, item_id: int, db: Session = Depends(get_d
         subtask_style = "margin-left: 1.5rem; border-left: 3px solid var(--primary);" if item.parent_id else ""
         subtask_prefix = '<span style="color: var(--primary); font-size: 0.85rem; margin-right: 0.2rem;">↳</span>' if item.parent_id else ""
         subtask_note = f'<span style="font-size: 0.7rem; color: var(--primary); margin-left: 0.4rem;">[Subtask of #{item.parent_id}]</span>' if item.parent_id else ""
-        due_chip = f'<span class="badge" style="font-size: 0.7rem; background: var(--bg); border: 1px solid var(--border); color: var(--text-main); margin-left: 0.4rem;">📅 {item.due_date}</span>' if item.due_date else ""
+        today_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        if item.due_date:
+            if not is_done and item.due_date < today_date:
+                due_chip = f'<span class="badge badge-automation" style="font-size: 0.7rem; font-weight: 700; margin-left: 0.4rem;">⚠️ Overdue: {item.due_date}</span>'
+            elif not is_done and item.due_date == today_date:
+                due_chip = f'<span class="badge badge-daily" style="font-size: 0.7rem; font-weight: 700; margin-left: 0.4rem;">🚨 Due Today</span>'
+            else:
+                due_chip = f'<span class="badge" style="font-size: 0.7rem; background: var(--bg); border: 1px solid var(--border); color: var(--text-main); margin-left: 0.4rem;">📅 Due: {item.due_date}</span>'
+        else:
+            due_chip = ""
         return HTMLResponse(f"""
         <div id="work-item-{item.id}" style="border: 1px solid var(--border); padding: 0.75rem; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; background: {bg_style}; {subtask_style}">
           <div style="display: flex; align-items: center; gap: 0.75rem;">
@@ -712,10 +742,17 @@ For each subtask, output on a new line strictly formatted as:
 # 5. GitHub Reviews
 # ----------------------------------------------------------------------
 @app.get("/github", response_class=HTMLResponse)
-def github_page(request: Request, db: Session = Depends(get_db)):
-    reviews = db.query(GitHubReview).order_by(GitHubReview.created_at.desc()).all()
+def github_page(request: Request, q: Optional[str] = None, db: Session = Depends(get_db)):
+    query = db.query(GitHubReview)
+    if q and q.strip():
+        search_term = f"%{q.strip()}%"
+        query = query.filter(GitHubReview.repo.ilike(search_term) | GitHubReview.human_summary.ilike(search_term))
+    reviews = query.order_by(GitHubReview.created_at.desc()).all()
     context = get_common_context(db, active_tab="github")
-    context.update({"reviews": reviews})
+    context.update({
+        "reviews": reviews,
+        "search_query": q or ""
+    })
     return templates.TemplateResponse(request=request, name="github.html", context=context)
 
 

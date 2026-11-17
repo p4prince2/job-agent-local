@@ -87,6 +87,29 @@ class TestContentAgent(unittest.TestCase):
         self.assertEqual(var_draft.type, "original_variation")
         self.assertIn("Fine-tuning vs RAG", var_draft.content)
 
+    def test_adapt_draft_platform(self):
+        """Verify cross-platform adaptation (e.g. LinkedIn -> X or Medium)."""
+        li_draft = Draft(
+            platform="linkedin",
+            type="original",
+            status="draft",
+            content="Extensive engineering post discussing memory bandwidth tradeoffs in modern LLM serving.",
+            source_ref="Test Source #2"
+        )
+        self.db.add(li_draft)
+        self.db.commit()
+        self.db.refresh(li_draft)
+
+        res = self.agent.adapt_draft_platform(li_draft.id, target_platform="x", db=self.db)
+        self.assertEqual(res["status"], "success")
+        self.assertEqual(res["target_platform"], "x")
+
+        adapted = self.db.query(Draft).filter(Draft.id == res["new_draft_id"]).first()
+        self.assertIsNotNone(adapted)
+        self.assertEqual(adapted.platform, "x")
+        self.assertEqual(adapted.type, "adapted_from_linkedin")
+        self.assertLessEqual(len(adapted.content), 280)
+
 
 if __name__ == "__main__":
     unittest.main()

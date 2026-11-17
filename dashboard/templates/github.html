@@ -9,23 +9,40 @@
     Read-only inspection reports for Prince (https://github.com/p4prince2). Audits project structure, test suites, dependencies, and READMEs.
   </p>
 
-  <form action="/github/audit" method="POST" style="background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.25rem; margin-bottom: 1.5rem; display: flex; gap: 0.75rem; align-items: flex-end;">
-    <div style="flex: 1;">
-      <label for="repo" style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted);">Repository or Directory to Audit:</label>
-      <input type="text" id="repo" name="repo" value="." placeholder="e.g. . (local repo) or github.com/p4prince2/job-agent-local" style="margin-top: 0.25rem;" required>
+  <!-- Audit Form & Search Toolbar -->
+  <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1.5rem;">
+    <form action="/github/audit" method="POST" style="background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.25rem; margin: 0; display: flex; gap: 0.75rem; align-items: flex-end;">
+      <div style="flex: 1;">
+        <label for="repo" style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted);">Repository or Directory to Audit:</label>
+        <input type="text" id="repo" name="repo" value="." placeholder="e.g. . (local repo) or github.com/p4prince2/job-agent-local" style="margin-top: 0.25rem;" required>
+      </div>
+      <button type="submit" class="btn btn-primary" style="white-space: nowrap; height: 42px;">🔍 Run Repository Audit</button>
+    </form>
+
+    <div style="background: var(--surface-alt); border: 1px solid var(--border); border-radius: 8px; padding: 0.6rem 1rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+      <form action="/github" method="GET" style="display: flex; gap: 0.5rem; align-items: center; margin: 0; flex: 1; max-width: 480px;">
+        <input type="text" name="q" value="{{ search_query }}" placeholder="Search audits by repository or content..." style="margin: 0; font-size: 0.85rem; height: 32px;">
+        <button type="submit" class="btn btn-secondary" style="font-size: 0.8rem; height: 32px; padding: 0 0.75rem;">Filter</button>
+        {% if search_query %}
+        <a href="/github" class="btn btn-secondary" style="font-size: 0.8rem; height: 32px; padding: 0 0.75rem; text-decoration: none; display: flex; align-items: center;">Reset</a>
+        {% endif %}
+      </form>
+      <div style="font-size: 0.8rem; color: var(--text-muted);">
+        Total Audits: <strong>{{ reviews|length }}</strong>
+      </div>
     </div>
-    <button type="submit" class="btn btn-primary" style="white-space: nowrap; height: 42px;">🔍 Run Repository Audit</button>
-  </form>
+  </div>
 
   <div style="display: flex; flex-direction: column; gap: 1.5rem;">
     {% for r in reviews %}
+    {% set summary = r.get_summary_dict() %}
     <div id="review-card-{{ r.id }}" style="border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; background: var(--surface);">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
         <div>
           <h3 style="display: inline;">📁 {{ r.repo }}</h3>
           <span style="font-size: 0.8rem; color: var(--text-muted); margin-left: 0.5rem;">Review #{{ r.id }} &bull; {{ r.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
         </div>
-        <div style="display: flex; align-items: center; gap: 0.5rem;">
+        <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
           <form action="/github/repurpose/{{ r.id }}" method="POST" style="margin: 0;">
             <button type="submit" class="btn btn-primary" style="font-size: 0.75rem; padding: 0.25rem 0.6rem; background: #6366F1; border: none; cursor: pointer;" title="Generate multi-format content drafts from this review">
               ✍️ Repurpose into Drafts
@@ -47,10 +64,34 @@
         </div>
       </div>
 
-      <div style="margin-bottom: 1rem;">
-        <h4 style="font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase;">Telemetry:</h4>
-        <pre style="max-height: 140px;">{{ r.summary_json }}</pre>
+      <!-- Telemetry Visual Chips -->
+      <div style="margin-bottom: 1rem; display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center;">
+        {% if summary.git_branch %}
+        <span class="badge badge-supervisor" style="font-size: 0.75rem;">🌿 Branch: {{ summary.git_branch }}{% if summary.git_commit %} ({{ summary.git_commit }}){% endif %}</span>
+        {% endif %}
+        {% if summary.has_tests %}
+        <span class="badge badge-content" style="font-size: 0.75rem;">✅ Tests Detected{% if summary.test_files %} ({{ summary.test_files|length }}){% endif %}</span>
+        {% else %}
+        <span class="badge badge-automation" style="font-size: 0.75rem;">⚪ No Test Suite</span>
+        {% endif %}
+        {% if summary.has_ci_workflows %}
+        <span class="badge badge-daily" style="font-size: 0.75rem;">🚀 CI/CD Active{% if summary.ci_workflows %} ({{ summary.ci_workflows|join(', ') }}){% endif %}</span>
+        {% endif %}
+        {% if summary.python_files_count %}
+        <span class="badge" style="background: var(--bg); border: 1px solid var(--border); font-size: 0.75rem; color: var(--text-main);">🐍 {{ summary.python_files_count }} Python files</span>
+        {% endif %}
+        {% if summary.dependency_files %}
+        <span class="badge" style="background: var(--bg); border: 1px solid var(--border); font-size: 0.75rem; color: var(--text-main);">📦 {{ summary.dependency_files|join(', ') }}</span>
+        {% endif %}
+        {% if summary.has_readme %}
+        <span class="badge badge-content" style="font-size: 0.75rem;">📄 README Present</span>
+        {% endif %}
       </div>
+
+      <details style="margin-bottom: 1rem; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 0.5rem 0.75rem;">
+        <summary style="cursor: pointer; font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">View Raw Telemetry JSON</summary>
+        <pre style="max-height: 140px; margin-top: 0.5rem; font-size: 0.8rem;">{{ r.summary_json }}</pre>
+      </details>
 
       <div>
         <h4 style="font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase;">Architectural Review:</h4>

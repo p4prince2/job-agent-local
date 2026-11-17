@@ -101,5 +101,17 @@ Automated unit tests covering critical path routing and security validation.
             return """- Subtask: Break down core requirements | Priority: high
 - Subtask: Implement and write unit tests | Priority: medium"""
 
+        # Handle Draft Cross-Platform Adaptation
+        if "adapt this draft" in prompt_text or "adaptation specialist" in (system_prompt or "").lower():
+            if "target platform: x" in prompt_text:
+                return "Autonomous agents need deterministic approval gates in production. Never compromise on safety."
+            elif "target platform: medium" in prompt_text:
+                return "# Architecting Deterministic Agent Systems\n\nDeep dive into combining LLM reasoning with persistent SQLite states and human approval gates."
+            elif "target platform: linkedin" in prompt_text:
+                return "When deploying multi-agent systems, deterministic boundaries matter more than raw parameter scale.\n\nHere is how we structure our production safety gates."
+            elif "target platform: image_prompt" in prompt_text:
+                return "Editorial illustration of AI agent nodes connected via glowing data streams to a security checkpoint."
+            return "Adapted draft content focusing on production architectural tradeoffs."
+
         # Default fallback response
         return "Simulated LLM response for: " + prompt_text[:80]

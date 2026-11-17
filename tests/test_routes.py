@@ -646,6 +646,83 @@ Architecture diagram with SQLite and local LLM icons.
         self.assertEqual(export_resp.status_code, 200)
         self.assertIn(f"(Due: {due_val})", export_resp.text)
 
+    def test_adapt_draft_endpoint(self):
+        from db.session import SessionLocal
+        from db.models import Draft
+
+        db = SessionLocal()
+        d = Draft(platform="linkedin", type="original", status="draft", content="Detailed architecture design for agent safety.")
+        db.add(d)
+        db.commit()
+        db.refresh(d)
+        d_id = d.id
+        db.close()
+
+        resp = self.client.post(f"/drafts/adapt/{d_id}", data={"target_platform": "x"}, follow_redirects=False)
+        self.assertEqual(resp.status_code, 303)
+        self.assertEqual(resp.headers["location"], "/drafts")
+
+        db = SessionLocal()
+        adapted = db.query(Draft).filter(Draft.type == "adapted_from_linkedin").all()
+        self.assertTrue(len(adapted) > 0)
+        self.assertEqual(adapted[-1].platform, "x")
+        db.close()
+
+    def test_overdue_work_item_badge(self):
+        import uuid
+        from db.session import SessionLocal
+        from db.models import WorkItem
+
+        uid = uuid.uuid4().hex[:6]
+        past_due = "2020-01-01"
+        create_resp = self.client.post("/work/create", data={
+            "title": f"Overdue Task {uid}",
+            "project_tag": "ai_ml",
+            "priority": "high",
+            "due_date": past_due
+        }, follow_redirects=False)
+        self.assertEqual(create_resp.status_code, 303)
+
+        page_resp = self.client.get("/work")
+        self.assertEqual(page_resp.status_code, 200)
+        self.assertIn(f"Overdue Task {uid}", page_resp.text)
+        self.assertIn("⚠️ Overdue", page_resp.text)
+
+    def test_github_search_and_telemetry_chips(self):
+        import uuid
+        import json
+        from db.session import SessionLocal
+        from db.models import GitHubReview
+
+        uid = uuid.uuid4().hex[:6]
+        mock_telemetry = {
+            "git_branch": f"feature/{uid}",
+            "git_commit": "a1b2c3d4",
+            "has_tests": True,
+            "test_files": ["test_core.py"],
+            "has_ci_workflows": True,
+            "ci_workflows": ["ci.yml"],
+            "python_files_count": 18,
+            "has_readme": True
+        }
+        db = SessionLocal()
+        rev = GitHubReview(
+            repo=f"Local: test-repo-{uid}",
+            summary_json=json.dumps(mock_telemetry),
+            human_summary=f"Architecture audit summary for {uid}"
+        )
+        db.add(rev)
+        db.commit()
+        db.refresh(rev)
+        db.close()
+
+        # Test search filter matches repo
+        search_resp = self.client.get(f"/github?q={uid}")
+        self.assertEqual(search_resp.status_code, 200)
+        self.assertIn(f"test-repo-{uid}", search_resp.text)
+        self.assertIn(f"feature/{uid}", search_resp.text)
+        self.assertIn("18 Python files", search_resp.text)
+
 
 if __name__ == "__main__":
     unittest.main()

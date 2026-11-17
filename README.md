@@ -137,9 +137,9 @@ Features a responsive **Dark/Light Mode Toggle**, global **In-App Reminder Banne
 |---|---|---|
 | `/` | 💬 Console | Task input, quick templates (including X URL ingestion), live metrics strip, Supervisor pipeline trace, and HTMX polling. |
 | `/tasks` | 📋 Tasks | Full task history table with status filtering, expandable agent trace accordions, **Re-run**, and `.md` audit export. |
-| `/drafts` | ✍️ Drafts | Saved drafts filterable by platform (`linkedin`, `medium`, `x`, `image_prompt`), approval status, keyword search, AI **Re-roll Angle**, publish-approval gating, and bulk `.md` digest export. |
-| `/work` | 📅 Daily Work | Tasks & subtasks filterable by tag (`gate_prep`, `ai_ml`, `github`, `content`), status (`all`, `todo`, `done`), title search, due date scheduling, AI **Decompose**, reminder scheduler/snoozer, and checklist `.md` export. |
-| `/github` | 🐙 GitHub | Interactive repository audit runner, structured telemetry inspector, one-click **Repurpose into Drafts**, and `.md` export. |
+| `/drafts` | ✍️ Drafts | Saved drafts filterable by platform (`linkedin`, `medium`, `x`, `image_prompt`), approval status, keyword search, AI **Re-roll Angle**, **Cross-Platform Adaptation** (`LinkedIn` ⇄ `Medium` ⇄ `X` ⇄ `Image`), publish-approval gating, and bulk `.md` digest export. |
+| `/work` | 📅 Daily Work | Tasks & subtasks filterable by tag (`gate_prep`, `ai_ml`, `github`, `content`), status (`all`, `todo`, `done`), title search, due date scheduling with **Overdue & Due Today alerts**, AI **Decompose**, reminder scheduler/snoozer, and checklist `.md` export. |
+| `/github` | 🐙 GitHub | Interactive repository audit runner, keyword search, structured telemetry chips (branch, commit, test files, workflows, python file counts), one-click **Repurpose into Drafts**, and `.md` export. |
 | `/approvals` | 🛡️ Approvals | Safety gate queue with HTMX **Approve / Reject** (auto-cascading to linked drafts), status filters, and audit `.md` export. |
 | `/logs` | 📜 Logs | Structured activity trail filterable by agent, severity level, and text search, with `.txt` export and cleanup. |
 
