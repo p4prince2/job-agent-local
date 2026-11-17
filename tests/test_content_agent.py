@@ -110,6 +110,29 @@ class TestContentAgent(unittest.TestCase):
         self.assertEqual(adapted.type, "adapted_from_linkedin")
         self.assertLessEqual(len(adapted.content), 280)
 
+    def test_polish_draft_tone(self):
+        """Verify tone polishing creates a new polished draft with specified style."""
+        x_draft = Draft(
+            platform="x",
+            type="original",
+            status="draft",
+            content="Multi-agent systems require careful coordination and state checking.",
+            source_ref="Test Source #3"
+        )
+        self.db.add(x_draft)
+        self.db.commit()
+        self.db.refresh(x_draft)
+
+        res = self.agent.polish_draft_tone(x_draft.id, tone="concise", db=self.db)
+        self.assertEqual(res["status"], "success")
+        self.assertEqual(res["tone"], "concise")
+
+        polished = self.db.query(Draft).filter(Draft.id == res["new_draft_id"]).first()
+        self.assertIsNotNone(polished)
+        self.assertEqual(polished.platform, "x")
+        self.assertEqual(polished.type, "polished_concise")
+        self.assertIn("RAG gives fresh context", polished.content)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -75,6 +75,16 @@ class TestApprovalManager(unittest.TestCase):
         finally:
             default_provider.model = original_model
 
+    def test_bulk_resolve_pending(self):
+        """Verify bulk resolving all pending approval requests."""
+        r1 = ApprovalManager.request_approval("delete_file", "Bulk action 1", requested_by_agent="Agent1", db=self.db)
+        r2 = ApprovalManager.request_approval("send_message", "Bulk action 2", requested_by_agent="Agent2", db=self.db)
+
+        count = ApprovalManager.resolve_all_pending("approved", db=self.db)
+        self.assertGreaterEqual(count, 2)
+        self.assertTrue(ApprovalManager.is_approved(r1["approval_id"], db=self.db))
+        self.assertTrue(ApprovalManager.is_approved(r2["approval_id"], db=self.db))
+
 
 if __name__ == "__main__":
     unittest.main()

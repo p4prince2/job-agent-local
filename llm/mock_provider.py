@@ -113,5 +113,15 @@ Automated unit tests covering critical path routing and security validation.
                 return "Editorial illustration of AI agent nodes connected via glowing data streams to a security checkpoint."
             return "Adapted draft content focusing on production architectural tradeoffs."
 
+        # Handle Draft Tone Polishing
+        if "polish" in prompt_text or "polishing" in (system_prompt or "").lower():
+            if "tone: concise" in prompt_text:
+                return "Deterministic safety gates prevent rogue agent execution in production. Zero compromise."
+            elif "tone: contrarian" in prompt_text:
+                return "Autonomous agents fail in production not because models are weak, but because teams ignore deterministic state boundaries."
+            elif "tone: research_grade" in prompt_text:
+                return "Empirical evaluation confirms that stateful SQLite isolation paired with deterministic human validation guarantees invariant compliance under high concurrency."
+            return "Polished technical draft prioritizing clear engineering execution."
+
         # Default fallback response
         return "Simulated LLM response for: " + prompt_text[:80]

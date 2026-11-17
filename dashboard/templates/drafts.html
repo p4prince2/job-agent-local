@@ -103,6 +103,16 @@
               Adapt
             </button>
           </form>
+          <form action="/drafts/polish/{{ d.id }}" method="POST" style="margin: 0; display: inline-flex; align-items: center; gap: 0.25rem;">
+            <select name="tone" style="margin: 0; font-size: 0.8rem; padding: 0.25rem 0.4rem; height: 32px; border-radius: 4px; border: 1px solid var(--border); background: var(--bg); color: var(--text-main);">
+              <option value="concise">🎯 Concise</option>
+              <option value="research_grade">🔬 Research-Grade</option>
+              <option value="contrarian">⚡ Contrarian</option>
+            </select>
+            <button type="submit" class="btn btn-secondary" style="font-size: 0.8rem; height: 32px; padding: 0 0.55rem;" title="Refine and polish draft tone with AI">
+              Polish
+            </button>
+          </form>
           <a href="/drafts/export/{{ d.id }}" class="btn btn-secondary" style="font-size: 0.85rem; text-decoration: none;">
             📥 Export .md
           </a>

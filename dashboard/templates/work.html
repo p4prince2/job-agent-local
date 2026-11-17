@@ -58,17 +58,27 @@
           <form action="/work" method="GET" style="display: flex; gap: 0.4rem; margin: 0; flex: 1; max-width: 360px;">
             <input type="hidden" name="tag" value="{{ selected_tag }}">
             <input type="hidden" name="status" value="{{ selected_status }}">
+            <input type="hidden" name="priority" value="{{ selected_priority }}">
             <input type="text" name="q" value="{{ search_query }}" placeholder="Filter work items by title..." style="margin: 0; font-size: 0.82rem; height: 30px;">
             <button type="submit" class="btn btn-secondary" style="font-size: 0.75rem; height: 30px; padding: 0 0.6rem;">Filter</button>
             {% if search_query %}
-            <a href="/work?tag={{ selected_tag }}&status={{ selected_status }}" class="btn btn-secondary" style="font-size: 0.75rem; height: 30px; padding: 0 0.6rem; text-decoration: none; display: flex; align-items: center;">Reset</a>
+            <a href="/work?tag={{ selected_tag }}&status={{ selected_status }}&priority={{ selected_priority }}" class="btn btn-secondary" style="font-size: 0.75rem; height: 30px; padding: 0 0.6rem; text-decoration: none; display: flex; align-items: center;">Reset</a>
             {% endif %}
           </form>
-          <div style="display: flex; gap: 0.3rem; align-items: center;">
-            <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Status:</span>
-            <a href="/work?status=all{% if selected_tag != 'all' %}&tag={{ selected_tag }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.2rem 0.5rem; {% if selected_status == 'all' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">All</a>
-            <a href="/work?status=todo{% if selected_tag != 'all' %}&tag={{ selected_tag }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.2rem 0.5rem; {% if selected_status == 'todo' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">Todo</a>
-            <a href="/work?status=done{% if selected_tag != 'all' %}&tag={{ selected_tag }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.2rem 0.5rem; {% if selected_status == 'done' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">Done</a>
+          <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+            <div style="display: flex; gap: 0.25rem; align-items: center;">
+              <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Status:</span>
+              <a href="/work?status=all{% if selected_tag != 'all' %}&tag={{ selected_tag }}{% endif %}{% if selected_priority != 'all' %}&priority={{ selected_priority }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.2rem 0.5rem; {% if selected_status == 'all' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">All</a>
+              <a href="/work?status=todo{% if selected_tag != 'all' %}&tag={{ selected_tag }}{% endif %}{% if selected_priority != 'all' %}&priority={{ selected_priority }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.2rem 0.5rem; {% if selected_status == 'todo' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">Todo</a>
+              <a href="/work?status=done{% if selected_tag != 'all' %}&tag={{ selected_tag }}{% endif %}{% if selected_priority != 'all' %}&priority={{ selected_priority }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.2rem 0.5rem; {% if selected_status == 'done' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">Done</a>
+            </div>
+            <div style="display: flex; gap: 0.25rem; align-items: center;">
+              <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Priority:</span>
+              <a href="/work?priority=all{% if selected_tag != 'all' %}&tag={{ selected_tag }}{% endif %}{% if selected_status != 'all' %}&status={{ selected_status }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.2rem 0.5rem; {% if selected_priority == 'all' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">All</a>
+              <a href="/work?priority=high{% if selected_tag != 'all' %}&tag={{ selected_tag }}{% endif %}{% if selected_status != 'all' %}&status={{ selected_status }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.2rem 0.5rem; {% if selected_priority == 'high' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">High</a>
+              <a href="/work?priority=medium{% if selected_tag != 'all' %}&tag={{ selected_tag }}{% endif %}{% if selected_status != 'all' %}&status={{ selected_status }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.2rem 0.5rem; {% if selected_priority == 'medium' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">Medium</a>
+              <a href="/work?priority=low{% if selected_tag != 'all' %}&tag={{ selected_tag }}{% endif %}{% if selected_status != 'all' %}&status={{ selected_status }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.2rem 0.5rem; {% if selected_priority == 'low' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">Low</a>
+            </div>
           </div>
         </div>
       </div>

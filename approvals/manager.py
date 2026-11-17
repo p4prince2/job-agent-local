@@ -159,6 +159,29 @@ class ApprovalManager:
                 db.close()
 
     @staticmethod
+    def resolve_all_pending(decision: str, db: Optional[Session] = None) -> int:
+        """Resolves all currently pending approval requests with 'approved' or 'rejected'."""
+        if decision not in ("approved", "rejected"):
+            raise ValueError("Decision must be 'approved' or 'rejected'")
+
+        owns_db = False
+        if db is None:
+            db = SessionLocal()
+            owns_db = True
+
+        try:
+            pending = db.query(Approval).filter(Approval.status == "pending").all()
+            count = 0
+            for app in pending:
+                if ApprovalManager.resolve_approval(app.id, decision=decision, db=db):
+                    count += 1
+            logger.info(f"Bulk resolved {count} pending approvals as {decision.upper()}")
+            return count
+        finally:
+            if owns_db:
+                db.close()
+
+    @staticmethod
     def get_all_approvals(limit: int = 50, db: Optional[Session] = None) -> List[Approval]:
         """Returns history of all approval requests."""
         owns_db = False

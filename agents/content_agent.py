@@ -435,3 +435,69 @@ Source Content ({original.platform.upper()}):
             "target_platform": target,
             "content": new_draft.content
         }
+
+    def polish_draft_tone(
+        self,
+        draft_id: int,
+        tone: str,
+        db: Session
+    ) -> Dict[str, Any]:
+        """Refines and polishes an existing draft's tone (concise, research_grade, contrarian)."""
+        original = db.query(Draft).filter(Draft.id == draft_id).first()
+        if not original:
+            raise ValueError(f"Draft #{draft_id} not found")
+
+        valid_tones = ["concise", "research_grade", "contrarian"]
+        selected_tone = tone.lower().strip()
+        if selected_tone not in valid_tones:
+            raise ValueError(f"Invalid tone '{selected_tone}'. Must be one of {valid_tones}")
+
+        tone_instructions = {
+            "concise": "Trim all fluff, eliminate filler phrases and passive voice, maximize information density, and sharpen the core technical thesis.",
+            "research_grade": "Deepen technical and algorithmic rigor, reference production tradeoffs and system benchmarks, and elevate peer credibility.",
+            "contrarian": "Reframe around an unconventional, anti-hype counter-narrative; challenge industry assumptions while grounding the argument in engineering reality."
+        }
+
+        prompt = f"""You are the CONTENT AGENT for Prince's personal AI team.
+Prince's technical niches: {', '.join(TECH_NICHES)}.
+
+Polish this existing {original.platform.upper()} draft according to the requested tone:
+Tone: {selected_tone.upper()}
+Guideline: {tone_instructions[selected_tone]}
+
+Original Draft ({original.platform.upper()}):
+{original.content}
+
+Rules:
+- Preserve platform guidelines (6-part structure if original LinkedIn post, <280 chars if X, 0 hashtags/emojis if reply).
+- Output the polished draft text directly.
+"""
+        response_text = self.llm.generate(
+            messages=[{"role": "user", "content": prompt}],
+            system_prompt="You are an expert editorial engineer polishing technical prose for maximum impact.",
+            temperature=0.65
+        )
+
+        cleaned_text = response_text.strip()
+        if original.platform == "x" and len(cleaned_text) > 280:
+            cleaned_text = self._extract_section(response_text, "3. Condensed X (Twitter) Post") or cleaned_text[:280]
+
+        new_draft = Draft(
+            platform=original.platform,
+            type=f"polished_{selected_tone}",
+            status="draft",
+            content=cleaned_text,
+            source_ref=original.source_ref or f"Polished from Draft #{original.id}"
+        )
+        db.add(new_draft)
+        db.commit()
+        db.refresh(new_draft)
+
+        logger.info(f"Polished Draft #{original.id} ({selected_tone}) -> New Draft #{new_draft.id}")
+        return {
+            "status": "success",
+            "original_id": original.id,
+            "new_draft_id": new_draft.id,
+            "tone": selected_tone,
+            "content": new_draft.content
+        }

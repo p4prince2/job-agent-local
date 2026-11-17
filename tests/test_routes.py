@@ -723,6 +723,64 @@ Architecture diagram with SQLite and local LLM icons.
         self.assertIn(f"feature/{uid}", search_resp.text)
         self.assertIn("18 Python files", search_resp.text)
 
+    def test_bulk_resolve_approvals_endpoint(self):
+        from approvals.manager import ApprovalManager
+        from db.session import SessionLocal
+
+        db = SessionLocal()
+        ApprovalManager.request_approval("delete_file", "Bulk action A", requested_by_agent="AgentA", db=db)
+        ApprovalManager.request_approval("send_message", "Bulk action B", requested_by_agent="AgentB", db=db)
+        db.close()
+
+        resp = self.client.post("/approvals/bulk-resolve", data={"decision": "approved"}, follow_redirects=False)
+        self.assertEqual(resp.status_code, 303)
+        self.assertEqual(resp.headers["location"], "/approvals")
+
+        db = SessionLocal()
+        pending = ApprovalManager.get_pending_approvals(db=db)
+        self.assertEqual(len(pending), 0)
+        db.close()
+
+    def test_polish_draft_endpoint(self):
+        from db.session import SessionLocal
+        from db.models import Draft
+
+        db = SessionLocal()
+        d = Draft(platform="linkedin", type="original", status="draft", content="Raw ideas about model routing bottlenecks.")
+        db.add(d)
+        db.commit()
+        db.refresh(d)
+        d_id = d.id
+        db.close()
+
+        resp = self.client.post(f"/drafts/polish/{d_id}", data={"tone": "concise"}, follow_redirects=False)
+        self.assertEqual(resp.status_code, 303)
+        self.assertEqual(resp.headers["location"], "/drafts")
+
+        db = SessionLocal()
+        polished = db.query(Draft).filter(Draft.type == "polished_concise").all()
+        self.assertTrue(len(polished) > 0)
+        db.close()
+
+    def test_work_priority_filtering(self):
+        import uuid
+        from db.session import SessionLocal
+        from db.models import WorkItem
+
+        uid = uuid.uuid4().hex[:6]
+        high_title = f"High Prio Task {uid}"
+        low_title = f"Low Prio Task {uid}"
+        db = SessionLocal()
+        db.add(WorkItem(title=high_title, project_tag="gate_prep", priority="high", status="todo"))
+        db.add(WorkItem(title=low_title, project_tag="gate_prep", priority="low", status="todo"))
+        db.commit()
+        db.close()
+
+        resp_high = self.client.get("/work?priority=high")
+        self.assertEqual(resp_high.status_code, 200)
+        self.assertIn(high_title, resp_high.text)
+        self.assertNotIn(low_title, resp_high.text)
+
 
 if __name__ == "__main__":
     unittest.main()

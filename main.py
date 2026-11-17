@@ -457,6 +457,21 @@ def adapt_draft_endpoint(
     return RedirectResponse(url="/drafts", status_code=303)
 
 
+@app.post("/drafts/polish/{draft_id}")
+def polish_draft_endpoint(
+    draft_id: int,
+    tone: str = Form("concise"),
+    db: Session = Depends(get_db)
+):
+    """Polishes an existing draft's tone (concise, research_grade, contrarian)."""
+    try:
+        res = default_supervisor.content_agent.polish_draft_tone(draft_id=draft_id, tone=tone, db=db)
+        logger.info(f"Polished draft #{draft_id} ({tone}) -> new draft #{res.get('new_draft_id')}")
+    except Exception as e:
+        logger.error(f"Failed to polish draft #{draft_id} ({tone}): {e}")
+    return RedirectResponse(url="/drafts", status_code=303)
+
+
 # ----------------------------------------------------------------------
 # 4. Daily Work & Reminders (CRUD)
 # ----------------------------------------------------------------------
@@ -465,6 +480,7 @@ def work_page(
     request: Request,
     tag: Optional[str] = None,
     status: Optional[str] = None,
+    priority: Optional[str] = None,
     q: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
@@ -473,6 +489,8 @@ def work_page(
         query = query.filter(WorkItem.project_tag == tag.lower())
     if status and status != "all":
         query = query.filter(WorkItem.status == status.lower())
+    if priority and priority != "all":
+        query = query.filter(WorkItem.priority == priority.lower())
     if q and q.strip():
         search_term = f"%{q.strip()}%"
         query = query.filter(WorkItem.title.ilike(search_term))
@@ -485,16 +503,26 @@ def work_page(
         "reminders": reminders,
         "selected_tag": tag or "all",
         "selected_status": status or "all",
+        "selected_priority": priority or "all",
         "search_query": q or ""
     })
     return templates.TemplateResponse(request=request, name="work.html", context=context)
 
 
 @app.get("/work/export")
-def export_work_items_endpoint(tag: Optional[str] = None, db: Session = Depends(get_db)):
+def export_work_items_endpoint(
+    tag: Optional[str] = None,
+    status: Optional[str] = None,
+    priority: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
     query = db.query(WorkItem)
     if tag and tag != "all":
         query = query.filter(WorkItem.project_tag == tag.lower())
+    if status and status != "all":
+        query = query.filter(WorkItem.status == status.lower())
+    if priority and priority != "all":
+        query = query.filter(WorkItem.priority == priority.lower())
     items = query.order_by(WorkItem.created_at.desc()).all()
 
     tag_str = f" ({tag.upper()})" if tag and tag != "all" else ""
@@ -878,6 +906,17 @@ def resolve_approval_endpoint(
             <span style="font-size: 0.8rem; color: var(--text-muted);">{datetime.now(timezone.utc).strftime('%H:%M:%S')} UTC</span>
         </div>
         """)
+    return RedirectResponse(url="/approvals", status_code=303)
+
+
+@app.post("/approvals/bulk-resolve")
+def bulk_resolve_approvals_endpoint(
+    decision: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    """Resolves all pending approvals in one click."""
+    count = ApprovalManager.resolve_all_pending(decision=decision, db=db)
+    logger.info(f"Bulk resolved {count} pending approvals as {decision.upper()}")
     return RedirectResponse(url="/approvals", status_code=303)
 
 
