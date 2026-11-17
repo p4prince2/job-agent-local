@@ -103,6 +103,41 @@
           </tr>
         </tbody>
       </table>
+
+      {% if db_stats %}
+      <div style="margin-top: 1.25rem; background: var(--surface-alt); border: 1px solid var(--border); border-radius: 8px; padding: 1rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+          <strong style="font-size: 0.9rem;">💾 SQLite Storage &amp; Record Telemetry</strong>
+          <span class="badge badge-daily" style="font-size: 0.75rem;">{{ db_stats.file_size_kb }} KB</span>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; text-align: center; font-size: 0.8rem;">
+          <div style="background: var(--surface); padding: 0.5rem; border-radius: 6px; border: 1px solid var(--border);">
+            <div style="font-size: 1.1rem; font-weight: 700; color: var(--primary);">{{ db_stats.tasks_count }}</div>
+            <div style="color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase;">Tasks</div>
+          </div>
+          <div style="background: var(--surface); padding: 0.5rem; border-radius: 6px; border: 1px solid var(--border);">
+            <div style="font-size: 1.1rem; font-weight: 700; color: #10B981;">{{ db_stats.drafts_count }}</div>
+            <div style="color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase;">Drafts</div>
+          </div>
+          <div style="background: var(--surface); padding: 0.5rem; border-radius: 6px; border: 1px solid var(--border);">
+            <div style="font-size: 1.1rem; font-weight: 700; color: #F59E0B;">{{ db_stats.work_items_count }}</div>
+            <div style="color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase;">Work Items</div>
+          </div>
+          <div style="background: var(--surface); padding: 0.5rem; border-radius: 6px; border: 1px solid var(--border);">
+            <div style="font-size: 1.1rem; font-weight: 700; color: #6366F1;">{{ db_stats.approvals_count }}</div>
+            <div style="color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase;">Approvals</div>
+          </div>
+          <div style="background: var(--surface); padding: 0.5rem; border-radius: 6px; border: 1px solid var(--border);">
+            <div style="font-size: 1.1rem; font-weight: 700; color: #8B5CF6;">{{ db_stats.reviews_count }}</div>
+            <div style="color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase;">Audits</div>
+          </div>
+          <div style="background: var(--surface); padding: 0.5rem; border-radius: 6px; border: 1px solid var(--border);">
+            <div style="font-size: 1.1rem; font-weight: 700; color: var(--text-muted);">{{ db_stats.logs_count }}</div>
+            <div style="color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase;">Logs</div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
     </div>
   </div>
 </div>

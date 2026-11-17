@@ -75,18 +75,48 @@
   </div>
   {% endif %}
 
-  <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1.5rem; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1.5rem; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
     <h3>Decision History</h3>
     <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
-      <a href="/approvals/export?status={{ selected_status }}" class="btn btn-secondary" style="font-size: 0.8rem; text-decoration: none;" title="Download safety approval records as Markdown">
+      <a href="/approvals/export?status={{ selected_status }}&action_type={{ selected_action_type }}{% if search_query %}&q={{ search_query }}{% endif %}&format=md" class="btn btn-secondary" style="font-size: 0.8rem; text-decoration: none;" title="Download safety approval records as Markdown">
         📥 Export Audit .md
       </a>
+      <a href="/approvals/export?status={{ selected_status }}&action_type={{ selected_action_type }}{% if search_query %}&q={{ search_query }}{% endif %}&format=csv" class="btn btn-secondary" style="font-size: 0.8rem; text-decoration: none;" title="Download safety approval records as CSV spreadsheet">
+        📊 Export Audit .csv
+      </a>
       <div style="display: flex; gap: 0.35rem; flex-wrap: wrap;">
-        <a href="/approvals?status=all" class="btn btn-secondary" style="font-size: 0.8rem; {% if selected_status == 'all' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">All</a>
-        <a href="/approvals?status=pending" class="btn btn-secondary" style="font-size: 0.8rem; {% if selected_status == 'pending' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">Pending</a>
-        <a href="/approvals?status=approved" class="btn btn-secondary" style="font-size: 0.8rem; {% if selected_status == 'approved' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">Approved</a>
-        <a href="/approvals?status=rejected" class="btn btn-secondary" style="font-size: 0.8rem; {% if selected_status == 'rejected' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">Rejected</a>
+        <a href="/approvals?status=all&action_type={{ selected_action_type }}{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.8rem; {% if selected_status == 'all' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">All</a>
+        <a href="/approvals?status=pending&action_type={{ selected_action_type }}{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.8rem; {% if selected_status == 'pending' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">Pending</a>
+        <a href="/approvals?status=approved&action_type={{ selected_action_type }}{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.8rem; {% if selected_status == 'approved' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">Approved</a>
+        <a href="/approvals?status=rejected&action_type={{ selected_action_type }}{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.8rem; {% if selected_status == 'rejected' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">Rejected</a>
       </div>
+    </div>
+  </div>
+
+  <!-- Search & Action Type Filters -->
+  <div style="background: var(--surface-alt); border: 1px solid var(--border); border-radius: 8px; padding: 0.6rem 1rem; margin-bottom: 1.25rem; display: flex; flex-direction: column; gap: 0.6rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+      <form action="/approvals" method="GET" style="display: flex; gap: 0.5rem; align-items: center; margin: 0; flex: 1; max-width: 480px;">
+        <input type="hidden" name="status" value="{{ selected_status }}">
+        <input type="hidden" name="action_type" value="{{ selected_action_type }}">
+        <input type="text" name="q" value="{{ search_query }}" placeholder="Search approvals by description or agent..." style="margin: 0; font-size: 0.85rem; height: 32px;">
+        <button type="submit" class="btn btn-secondary" style="font-size: 0.8rem; height: 32px; padding: 0 0.75rem;">Filter</button>
+        {% if search_query %}
+        <a href="/approvals?status={{ selected_status }}&action_type={{ selected_action_type }}" class="btn btn-secondary" style="font-size: 0.8rem; height: 32px; padding: 0 0.75rem; text-decoration: none; display: flex; align-items: center;">Reset</a>
+        {% endif %}
+      </form>
+      <div style="font-size: 0.8rem; color: var(--text-muted);">
+        Matching Records: <strong>{{ all_approvals|length }}</strong>
+      </div>
+    </div>
+    <div style="display: flex; gap: 0.3rem; align-items: center; flex-wrap: wrap; font-size: 0.75rem;">
+      <span style="font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Action Type:</span>
+      <a href="/approvals?status={{ selected_status }}&action_type=all{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.2rem 0.5rem; {% if selected_action_type == 'all' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">All Types</a>
+      <a href="/approvals?status={{ selected_status }}&action_type=publish_post{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.2rem 0.5rem; {% if selected_action_type == 'publish_post' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">Publish Post</a>
+      <a href="/approvals?status={{ selected_status }}&action_type=delete_file{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.2rem 0.5rem; {% if selected_action_type == 'delete_file' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">Delete File</a>
+      <a href="/approvals?status={{ selected_status }}&action_type=modify_system{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.2rem 0.5rem; {% if selected_action_type == 'modify_system' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">Modify System</a>
+      <a href="/approvals?status={{ selected_status }}&action_type=send_message{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.2rem 0.5rem; {% if selected_action_type == 'send_message' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">Send Message</a>
+      <a href="/approvals?status={{ selected_status }}&action_type=purchase{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.2rem 0.5rem; {% if selected_action_type == 'purchase' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">Purchase</a>
     </div>
   </div>
   <table>

@@ -140,8 +140,9 @@ Features a responsive **Dark/Light Mode Toggle**, global **In-App Reminder Banne
 | `/drafts` | ✍️ Drafts | Saved drafts filterable by platform (`linkedin`, `medium`, `x`, `image_prompt`), approval status, keyword search, estimated read time, X/Twitter 280-char limit counter, **Draft Duplication** (`📑 Duplicate`), AI **Re-roll Angle**, **Cross-Platform Adaptation** (`LinkedIn` ⇄ `Medium` ⇄ `X` ⇄ `Image`), **AI Tone Polish** (`Concise`, `Research-Grade`, `Contrarian`), publish-approval gating, and bulk `.md` digest / `.csv` spreadsheet export. |
 | `/work` | 📅 Daily Work | Tasks & subtasks filterable by tag (`gate_prep`, `ai_ml`, `github`, `content`), status (`all`, `todo`, `done`), priority (`high`, `medium`, `low`), title search, subtask progress badges (`🎯 N/M subtasks (P%)`), **Complete All Tag** batch action, due date scheduling with **Overdue & Due Today alerts**, AI **Decompose**, reminder scheduler/snoozer, and checklist `.md` / `.csv` export. |
 | `/github` | 🐙 GitHub | Interactive repository audit runner, side-by-side audit comparison tool (`/github/compare`), keyword search, structured telemetry chips (branch, commit, test files, workflows, python file counts), one-click **Repurpose into Drafts**, and `.md` export. |
-| `/approvals` | 🛡️ Approvals | Safety gate queue with HTMX **Approve / Reject**, one-click **Bulk Approve / Reject All**, status filters, and audit `.md` export. |
+| `/approvals` | 🛡️ Approvals | Safety gate queue with HTMX **Approve / Reject**, one-click **Bulk Approve / Reject All**, action type filtering (`publish_post`, `delete_file`, `modify_system`, etc.), keyword search (`q`), and `.md` / `.csv` audit export. |
 | `/logs` | 📜 Logs | Structured activity trail filterable by agent, severity level, and text search, with `.txt` export and cleanup. |
+| `/settings` | ⚙️ Settings | Local LLM provider health check, safety-gated runtime model switching, SQLite database storage & table record telemetry, and environment config. |
 
 ---
 

@@ -1017,32 +1017,81 @@ def delete_github_review_endpoint(request: Request, review_id: int, db: Session 
 # 6. Approval Queue & Safety Center
 # ----------------------------------------------------------------------
 @app.get("/approvals", response_class=HTMLResponse)
-def approvals_page(request: Request, status: Optional[str] = None, db: Session = Depends(get_db)):
-    pending = ApprovalManager.get_pending_approvals(db=db)
+def approvals_page(
+    request: Request,
+    status: Optional[str] = None,
+    action_type: Optional[str] = None,
+    q: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    pending_query = db.query(Approval).filter(Approval.status == "pending")
     query = db.query(Approval)
     if status and status != "all":
         query = query.filter(Approval.status == status.lower())
-    all_apps = query.order_by(Approval.created_at.desc()).limit(50).all()
+    if action_type and action_type != "all":
+        query = query.filter(Approval.action_type == action_type.lower())
+        pending_query = pending_query.filter(Approval.action_type == action_type.lower())
+    if q and q.strip():
+        search_term = f"%{q.strip()}%"
+        query = query.filter(Approval.description.ilike(search_term) | Approval.requested_by_agent.ilike(search_term))
+        pending_query = pending_query.filter(Approval.description.ilike(search_term) | Approval.requested_by_agent.ilike(search_term))
+    all_apps = query.order_by(Approval.created_at.desc()).limit(100).all()
+    pending = pending_query.order_by(Approval.created_at.asc()).all()
     context = get_common_context(db, active_tab="approvals")
     context.update({
         "pending_approvals": pending,
         "all_approvals": all_apps,
-        "selected_status": status or "all"
+        "selected_status": status or "all",
+        "selected_action_type": action_type or "all",
+        "search_query": q or ""
     })
     return templates.TemplateResponse(request=request, name="approvals.html", context=context)
 
 
 @app.get("/approvals/export")
-def export_approvals_endpoint(status: Optional[str] = None, db: Session = Depends(get_db)):
+def export_approvals_endpoint(
+    status: Optional[str] = None,
+    action_type: Optional[str] = None,
+    q: Optional[str] = None,
+    format: Optional[str] = "md",
+    db: Session = Depends(get_db)
+):
     query = db.query(Approval)
     if status and status != "all":
         query = query.filter(Approval.status == status.lower())
+    if action_type and action_type != "all":
+        query = query.filter(Approval.action_type == action_type.lower())
+    if q and q.strip():
+        search_term = f"%{q.strip()}%"
+        query = query.filter(Approval.description.ilike(search_term) | Approval.requested_by_agent.ilike(search_term))
     approvals = query.order_by(Approval.created_at.desc()).all()
+
+    if format and format.lower() == "csv":
+        import io, csv
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["id", "action_type", "requested_by_agent", "description", "status", "created_at", "resolved_at"])
+        for a in approvals:
+            writer.writerow([
+                a.id,
+                a.action_type,
+                a.requested_by_agent,
+                a.description,
+                a.status,
+                a.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+                a.resolved_at.strftime('%Y-%m-%d %H:%M:%S') if a.resolved_at else ""
+            ])
+        filename = f"approvals_audit_{status or 'all'}.csv"
+        return Response(
+            content=output.getvalue(),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+        )
 
     filename = f"approvals_audit_{status or 'all'}.md"
     body = f"# Human Approval & Safety Audit\n\n"
     body += f"- Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}\n"
-    body += f"- Filter: {status or 'all'}\n"
+    body += f"- Filter: Status={status or 'all'}, Action={action_type or 'all'}, Query='{q or ''}'\n"
     body += f"- Total Records: {len(approvals)}\n\n---\n\n"
 
     for a in approvals:
@@ -1166,11 +1215,29 @@ def clear_logs_endpoint(db: Session = Depends(get_db)):
 # ----------------------------------------------------------------------
 @app.get("/settings", response_class=HTMLResponse)
 def settings_page(request: Request, db: Session = Depends(get_db)):
+    import os
     llm_info = default_provider.check_status()
     db_display = DATABASE_URL.split("@")[-1] if "@" in DATABASE_URL else DATABASE_URL
+
+    db_size_kb = 0
+    db_path = "data/prince_ai_team.db"
+    if os.path.exists(db_path):
+        db_size_kb = round(os.path.getsize(db_path) / 1024, 2)
+
+    db_stats = {
+        "file_size_kb": db_size_kb,
+        "tasks_count": db.query(Task).count(),
+        "drafts_count": db.query(Draft).count(),
+        "work_items_count": db.query(WorkItem).count(),
+        "approvals_count": db.query(Approval).count(),
+        "reviews_count": db.query(GitHubReview).count(),
+        "logs_count": db.query(Log).count(),
+    }
+
     context = get_common_context(db, active_tab="settings")
     context.update({
         "llm_info": llm_info,
+        "db_stats": db_stats,
         "ollama_host": OLLAMA_HOST,
         "github_username": GITHUB_USERNAME,
         "log_level": LOG_LEVEL,

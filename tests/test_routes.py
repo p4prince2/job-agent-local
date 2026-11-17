@@ -1031,6 +1031,64 @@ Architecture diagram with SQLite and local LLM icons.
         self.assertTrue(all(it.completed_at is not None for it in items))
         db.close()
 
+    def test_approvals_search_and_action_type_filter(self):
+        import uuid
+        from db.session import SessionLocal
+        from approvals.manager import ApprovalManager
+
+        uid = uuid.uuid4().hex[:6]
+        desc1 = f"Delete config backup {uid}"
+        desc2 = f"Post announcement update {uid}"
+        db = SessionLocal()
+        ApprovalManager.request_approval("delete_file", desc1, requested_by_agent="AgentDel", db=db)
+        ApprovalManager.request_approval("publish_post", desc2, requested_by_agent="AgentPub", db=db)
+        db.close()
+
+        # Filter by action type
+        resp_act = self.client.get("/approvals?action_type=delete_file")
+        self.assertEqual(resp_act.status_code, 200)
+        self.assertIn(desc1, resp_act.text)
+        self.assertNotIn(desc2, resp_act.text)
+
+        # Filter by keyword search
+        resp_q = self.client.get(f"/approvals?q={uid}")
+        self.assertEqual(resp_q.status_code, 200)
+        self.assertIn(desc1, resp_q.text)
+        self.assertIn(desc2, resp_q.text)
+
+    def test_approvals_export_csv_and_md(self):
+        import uuid
+        from db.session import SessionLocal
+        from approvals.manager import ApprovalManager
+
+        uid = uuid.uuid4().hex[:6]
+        desc = f"Critical safety action {uid}"
+        db = SessionLocal()
+        ApprovalManager.request_approval("modify_system", desc, requested_by_agent="TestAgent", db=db)
+        db.close()
+
+        # Test CSV export
+        csv_resp = self.client.get(f"/approvals/export?q={uid}&format=csv")
+        self.assertEqual(csv_resp.status_code, 200)
+        self.assertEqual(csv_resp.headers["content-type"], "text/csv; charset=utf-8")
+        self.assertIn("id,action_type,requested_by_agent,description,status,created_at,resolved_at", csv_resp.text)
+        self.assertIn(desc, csv_resp.text)
+
+        # Test MD export
+        md_resp = self.client.get(f"/approvals/export?q={uid}&format=md")
+        self.assertEqual(md_resp.status_code, 200)
+        self.assertEqual(md_resp.headers["content-type"], "text/markdown; charset=utf-8")
+        self.assertIn(desc, md_resp.text)
+
+    def test_settings_db_storage_telemetry(self):
+        resp = self.client.get("/settings")
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("SQLite Storage &amp; Record Telemetry", resp.text)
+        self.assertIn("KB", resp.text)
+        self.assertIn("Tasks", resp.text)
+        self.assertIn("Drafts", resp.text)
+        self.assertIn("Work Items", resp.text)
+
 
 if __name__ == "__main__":
     unittest.main()
