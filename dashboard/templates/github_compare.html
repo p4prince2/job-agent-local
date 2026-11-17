@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}Compare Repository Audits | Prince AI Team{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 0.75rem;">
+    <div>
+      <h2>📊 Repository Audit Comparison</h2>
+      <p style="color: var(--text-muted); font-size: 0.9rem;">
+        Compare two architecture audit reports side-by-side to track codebase evolution, test coverage, and tooling changes.
+      </p>
+    </div>
+    <a href="/github" class="btn btn-secondary" style="font-size: 0.85rem; text-decoration: none;">&larr; Back to Audits</a>
+  </div>
+
+  <!-- Selector Form -->
+  <form action="/github/compare" method="GET" style="background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.25rem; margin-bottom: 1.5rem; display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap;">
+    <div style="flex: 1; min-width: 220px;">
+      <label for="id1" style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">Baseline Audit (Review 1):</label>
+      <select id="id1" name="id1" style="margin-top: 0.25rem; font-size: 0.85rem;">
+        {% for r in reviews %}
+        <option value="{{ r.id }}" {% if rev1 and rev1.id == r.id %}selected{% endif %}>
+          #{{ r.id }}: {{ r.repo }} ({{ r.created_at.strftime('%Y-%m-%d %H:%M') }})
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div style="flex: 1; min-width: 220px;">
+      <label for="id2" style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">Comparison Target (Review 2):</label>
+      <select id="id2" name="id2" style="margin-top: 0.25rem; font-size: 0.85rem;">
+        {% for r in reviews %}
+        <option value="{{ r.id }}" {% if rev2 and rev2.id == r.id %}selected{% endif %}>
+          #{{ r.id }}: {{ r.repo }} ({{ r.created_at.strftime('%Y-%m-%d %H:%M') }})
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="btn btn-primary" style="height: 38px; white-space: nowrap;">⚡ Compare Audits</button>
+  </form>
+
+  {% if rev1 and rev2 %}
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; align-items: start;">
+    <!-- Review 1 Column -->
+    <div style="border: 2px solid var(--primary); border-radius: 8px; padding: 1.25rem; background: var(--surface);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+        <span class="badge badge-supervisor">Review 1 (ID #{{ rev1.id }})</span>
+        <span style="font-size: 0.8rem; color: var(--text-muted);">{{ rev1.created_at.strftime('%Y-%m-%d %H:%M:%S UTC') }}</span>
+      </div>
+      <h3 style="margin-bottom: 0.75rem;">📁 {{ rev1.repo }}</h3>
+
+      <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem; font-size: 0.85rem;">
+        <div><strong>Branch:</strong> <code>{{ summary1.git_branch or 'main' }}</code> {% if summary1.git_commit %}({{ summary1.git_commit }}){% endif %}</div>
+        <div><strong>Python Files:</strong> <span class="badge" style="background: var(--bg); border: 1px solid var(--border);">🐍 {{ summary1.python_files_count or 0 }}</span></div>
+        <div><strong>Test Suite:</strong> {% if summary1.has_tests %}✅ Detected ({{ summary1.test_files|length if summary1.test_files else 'Yes' }} files){% else %}⚪ None{% endif %}</div>
+        <div><strong>CI Workflows:</strong> {% if summary1.has_ci_workflows %}🚀 Active ({{ summary1.ci_workflows|join(', ') }}){% else %}⚪ None{% endif %}</div>
+        <div><strong>Dependencies:</strong> <code>{{ summary1.dependency_files|join(', ') if summary1.dependency_files else 'None' }}</code></div>
+      </div>
+
+      <div style="border-top: 1px solid var(--border); padding-top: 0.75rem;">
+        <h4 style="font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase;">Architectural Findings:</h4>
+        <div style="white-space: pre-wrap; font-size: 0.9rem; margin-top: 0.5rem; line-height: 1.5;">{{ rev1.human_summary }}</div>
+      </div>
+    </div>
+
+    <!-- Review 2 Column -->
+    <div style="border: 2px solid #10B981; border-radius: 8px; padding: 1.25rem; background: var(--surface);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+        <span class="badge badge-content">Review 2 (ID #{{ rev2.id }})</span>
+        <span style="font-size: 0.8rem; color: var(--text-muted);">{{ rev2.created_at.strftime('%Y-%m-%d %H:%M:%S UTC') }}</span>
+      </div>
+      <h3 style="margin-bottom: 0.75rem;">📁 {{ rev2.repo }}</h3>
+
+      <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem; font-size: 0.85rem;">
+        <div><strong>Branch:</strong> <code>{{ summary2.git_branch or 'main' }}</code> {% if summary2.git_commit %}({{ summary2.git_commit }}){% endif %}</div>
+        <div><strong>Python Files:</strong> <span class="badge" style="background: var(--bg); border: 1px solid var(--border);">🐍 {{ summary2.python_files_count or 0 }}</span></div>
+        <div><strong>Test Suite:</strong> {% if summary2.has_tests %}✅ Detected ({{ summary2.test_files|length if summary2.test_files else 'Yes' }} files){% else %}⚪ None{% endif %}</div>
+        <div><strong>CI Workflows:</strong> {% if summary2.has_ci_workflows %}🚀 Active ({{ summary2.ci_workflows|join(', ') }}){% else %}⚪ None{% endif %}</div>
+        <div><strong>Dependencies:</strong> <code>{{ summary2.dependency_files|join(', ') if summary2.dependency_files else 'None' }}</code></div>
+      </div>
+
+      <div style="border-top: 1px solid var(--border); padding-top: 0.75rem;">
+        <h4 style="font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase;">Architectural Findings:</h4>
+        <div style="white-space: pre-wrap; font-size: 0.9rem; margin-top: 0.5rem; line-height: 1.5;">{{ rev2.human_summary }}</div>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div style="text-align: center; color: var(--text-muted); padding: 3rem;">
+    Please run at least two repository audits to use the side-by-side comparison tool.
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

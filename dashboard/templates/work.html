@@ -119,6 +119,13 @@
               {% endif %}
               {% if item.parent_id %}
               <span style="font-size: 0.7rem; color: var(--primary); margin-left: 0.4rem;">[Subtask of #{{ item.parent_id }}]</span>
+              {% else %}
+                {% set prog = item.get_subtask_progress() %}
+                {% if prog.total > 0 %}
+                <span class="badge {% if prog.percent == 100 %}badge-content{% else %}badge-supervisor{% endif %}" style="font-size: 0.7rem; margin-left: 0.4rem;" title="Subtask progress">
+                  🎯 {{ prog.completed }}/{{ prog.total }} subtasks ({{ prog.percent }}%)
+                </span>
+                {% endif %}
               {% endif %}
             </div>
           </div>

@@ -781,6 +781,97 @@ Architecture diagram with SQLite and local LLM icons.
         self.assertIn(high_title, resp_high.text)
         self.assertNotIn(low_title, resp_high.text)
 
+    def test_github_compare_page(self):
+        import json
+        from db.session import SessionLocal
+        from db.models import GitHubReview
+
+        db = SessionLocal()
+        rev1 = GitHubReview(
+            repo="p4prince2/job-agent-local",
+            summary_json=json.dumps({
+                "git_branch": "main",
+                "git_commit": "856ae75",
+                "python_files_count": 25,
+                "has_tests": True,
+                "test_files": ["test_a.py", "test_b.py"],
+                "has_ci_workflows": False
+            }),
+            human_summary="Audit 1 baseline report."
+        )
+        rev2 = GitHubReview(
+            repo="p4prince2/job-agent-local",
+            summary_json=json.dumps({
+                "git_branch": "feature-audit",
+                "git_commit": "f94f4c6",
+                "python_files_count": 30,
+                "has_tests": True,
+                "test_files": ["test_a.py", "test_b.py", "test_c.py"],
+                "has_ci_workflows": True,
+                "ci_workflows": ["ci.yml"]
+            }),
+            human_summary="Audit 2 comparison report."
+        )
+        db.add(rev1)
+        db.add(rev2)
+        db.commit()
+        db.refresh(rev1)
+        db.refresh(rev2)
+        r1_id, r2_id = rev1.id, rev2.id
+        db.close()
+
+        resp = self.client.get(f"/github/compare?id1={r1_id}&id2={r2_id}")
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("Repository Audit Comparison", resp.text)
+        self.assertIn("Audit 1 baseline report", resp.text)
+        self.assertIn("Audit 2 comparison report", resp.text)
+        self.assertIn("feature-audit", resp.text)
+
+    def test_work_subtask_progress_and_badge(self):
+        import uuid
+        from db.session import SessionLocal
+        from db.models import WorkItem
+
+        uid = uuid.uuid4().hex[:6]
+        parent_title = f"Epic Goal {uid}"
+        db = SessionLocal()
+        parent = WorkItem(title=parent_title, project_tag="general", priority="high", status="todo")
+        db.add(parent)
+        db.commit()
+        db.refresh(parent)
+
+        sub1 = WorkItem(title=f"Subtask 1 {uid}", project_tag="general", priority="medium", status="done", parent_id=parent.id)
+        sub2 = WorkItem(title=f"Subtask 2 {uid}", project_tag="general", priority="medium", status="todo", parent_id=parent.id)
+        db.add(sub1)
+        db.add(sub2)
+        db.commit()
+        db.refresh(parent)
+
+        prog = parent.get_subtask_progress()
+        self.assertEqual(prog["total"], 2)
+        self.assertEqual(prog["completed"], 1)
+        self.assertEqual(prog["percent"], 50)
+        db.close()
+
+        resp = self.client.get("/work")
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("1/2 subtasks (50%)", resp.text)
+
+    def test_drafts_x_character_limit_counter(self):
+        from db.session import SessionLocal
+        from db.models import Draft
+
+        db = SessionLocal()
+        long_content = "This is a long tweet that definitely exceeds the standard X (Twitter) limit of 280 characters. " * 5
+        d = Draft(platform="x", type="original", status="draft", content=long_content)
+        db.add(d)
+        db.commit()
+        db.close()
+
+        resp = self.client.get("/drafts")
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("Exceeds 280 limit", resp.text)
+
 
 if __name__ == "__main__":
     unittest.main()

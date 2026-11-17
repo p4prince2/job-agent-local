@@ -784,6 +784,27 @@ def github_page(request: Request, q: Optional[str] = None, db: Session = Depends
     return templates.TemplateResponse(request=request, name="github.html", context=context)
 
 
+@app.get("/github/compare", response_class=HTMLResponse)
+def compare_github_reviews_page(
+    request: Request,
+    id1: Optional[int] = None,
+    id2: Optional[int] = None,
+    db: Session = Depends(get_db)
+):
+    reviews = db.query(GitHubReview).order_by(GitHubReview.created_at.desc()).all()
+    rev1 = db.query(GitHubReview).filter(GitHubReview.id == id1).first() if id1 else (reviews[0] if len(reviews) > 0 else None)
+    rev2 = db.query(GitHubReview).filter(GitHubReview.id == id2).first() if id2 else (reviews[1] if len(reviews) > 1 else (reviews[0] if len(reviews) > 0 else None))
+    context = get_common_context(db, active_tab="github")
+    context.update({
+        "reviews": reviews,
+        "rev1": rev1,
+        "rev2": rev2,
+        "summary1": rev1.get_summary_dict() if rev1 else {},
+        "summary2": rev2.get_summary_dict() if rev2 else {}
+    })
+    return templates.TemplateResponse(request=request, name="github_compare.html", context=context)
+
+
 @app.post("/github/audit")
 def audit_github_repo_endpoint(
     repo: str = Form("."),

@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy import (
     Column, Integer, String, Text, Boolean, DateTime, ForeignKey, Index
 )
-from sqlalchemy.orm import declarative_base, relationship
+from sqlalchemy.orm import declarative_base, relationship, backref
 
 Base = declarative_base()
 
@@ -100,7 +100,16 @@ class WorkItem(Base):
     created_at = Column(DateTime, nullable=False, default=utc_now)
     completed_at = Column(DateTime, nullable=True)
 
-    subtasks = relationship("WorkItem", backref="parent", remote_side=[id])
+    subtasks = relationship("WorkItem", backref=backref("parent", remote_side=[id]))
+
+    def get_subtask_progress(self) -> Dict[str, Any]:
+        """Returns total subtasks, completed subtasks, and percentage."""
+        if not self.subtasks:
+            return {"total": 0, "completed": 0, "percent": 0}
+        total = len(self.subtasks)
+        completed = sum(1 for s in self.subtasks if s.status == "done")
+        percent = int((completed / total) * 100) if total > 0 else 0
+        return {"total": total, "completed": completed, "percent": percent}
 
 
 class Reminder(Base):
