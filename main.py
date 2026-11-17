@@ -328,6 +328,7 @@ def drafts_page(
 def export_all_drafts_endpoint(
     platform: Optional[str] = None,
     status: Optional[str] = None,
+    format: Optional[str] = "md",
     db: Session = Depends(get_db)
 ):
     query = db.query(Draft)
@@ -336,6 +337,20 @@ def export_all_drafts_endpoint(
     if status and status != "all":
         query = query.filter(Draft.status == status.lower())
     drafts = query.order_by(Draft.created_at.desc()).all()
+
+    if format and format.lower() == "csv":
+        import io, csv
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["id", "platform", "type", "status", "source_ref", "content", "created_at"])
+        for d in drafts:
+            writer.writerow([d.id, d.platform, d.type, d.status, d.source_ref or "", d.content, d.created_at.strftime('%Y-%m-%d %H:%M:%S')])
+        filename = f"drafts_{platform or 'all'}.csv"
+        return Response(
+            content=output.getvalue(),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+        )
 
     filename = f"drafts_digest_{platform or 'all'}.md"
     body = f"# Content Lab Drafts Digest\n\n"
@@ -514,6 +529,7 @@ def export_work_items_endpoint(
     tag: Optional[str] = None,
     status: Optional[str] = None,
     priority: Optional[str] = None,
+    format: Optional[str] = "md",
     db: Session = Depends(get_db)
 ):
     query = db.query(WorkItem)
@@ -524,6 +540,20 @@ def export_work_items_endpoint(
     if priority and priority != "all":
         query = query.filter(WorkItem.priority == priority.lower())
     items = query.order_by(WorkItem.created_at.desc()).all()
+
+    if format and format.lower() == "csv":
+        import io, csv
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["id", "title", "project_tag", "priority", "status", "due_date", "parent_id", "created_at"])
+        for it in items:
+            writer.writerow([it.id, it.title, it.project_tag, it.priority, it.status, it.due_date or "", it.parent_id or "", it.created_at.strftime('%Y-%m-%d %H:%M:%S')])
+        filename = f"work_items_{tag or 'all'}.csv"
+        return Response(
+            content=output.getvalue(),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+        )
 
     tag_str = f" ({tag.upper()})" if tag and tag != "all" else ""
     filename = f"work_items_{tag or 'all'}.md"

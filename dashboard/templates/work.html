@@ -43,8 +43,11 @@
             <a href="/work?tag=content{% if selected_status != 'all' %}&status={{ selected_status }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.55rem; {% if selected_tag == 'content' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">Content</a>
           </div>
           <div style="display: flex; gap: 0.4rem; align-items: center;">
-            <a href="/work/export?tag={{ selected_tag }}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.6rem; text-decoration: none;" title="Download tasks as Markdown checklist">
+            <a href="/work/export?tag={{ selected_tag }}&status={{ selected_status }}&priority={{ selected_priority }}&format=md" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.6rem; text-decoration: none;" title="Download tasks as Markdown checklist">
               📥 Export .md
+            </a>
+            <a href="/work/export?tag={{ selected_tag }}&status={{ selected_status }}&priority={{ selected_priority }}&format=csv" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.6rem; text-decoration: none;" title="Download tasks as CSV spreadsheet">
+              📊 Export .csv
             </a>
             <form action="/work/clear-completed" method="POST" style="margin: 0;" onsubmit="return confirm('Clear all completed items?');">
               <button type="submit" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.6rem; color: #DC2626;" title="Remove done tasks">

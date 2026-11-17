@@ -12,8 +12,11 @@
       </p>
     </div>
     <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
-      <a href="/drafts/export-all?platform={{ selected_platform }}&status={{ selected_status }}" class="btn btn-secondary" style="font-size: 0.85rem; text-decoration: none;" title="Export all matching drafts as a Markdown digest">
+      <a href="/drafts/export-all?platform={{ selected_platform }}&status={{ selected_status }}&format=md" class="btn btn-secondary" style="font-size: 0.85rem; text-decoration: none;" title="Export all matching drafts as a Markdown digest">
         📥 Export All .md
+      </a>
+      <a href="/drafts/export-all?platform={{ selected_platform }}&status={{ selected_status }}&format=csv" class="btn btn-secondary" style="font-size: 0.85rem; text-decoration: none;" title="Export all matching drafts as CSV spreadsheet">
+        📊 Export CSV
       </a>
       <div style="display: flex; gap: 0.35rem; flex-wrap: wrap;">
         <a href="/drafts?platform=all{% if selected_status != 'all' %}&status={{ selected_status }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.8rem; {% if selected_platform == 'all' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">All</a>
@@ -64,6 +67,9 @@
               {% endif %}
             {% endif %}
             &bull; <span style="color: var(--text-main); font-weight: 500;">{{ d.content.split()|length }} words</span>
+            {% if d.platform in ['medium', 'linkedin'] %}
+            &bull; <span style="color: var(--text-muted); font-size: 0.75rem;">(~{{ (d.content.split()|length // 200) + 1 }} min read)</span>
+            {% endif %}
           </span>
           {% if d.source_ref %}
           <div style="margin-top: 0.35rem; font-size: 0.8rem; color: var(--text-muted);">

@@ -872,6 +872,49 @@ Architecture diagram with SQLite and local LLM icons.
         self.assertEqual(resp.status_code, 200)
         self.assertIn("Exceeds 280 limit", resp.text)
 
+    def test_work_export_csv_format(self):
+        import uuid
+        from db.session import SessionLocal
+        from db.models import WorkItem
+
+        uid = uuid.uuid4().hex[:6]
+        title = f"Task CSV Test {uid}"
+        db = SessionLocal()
+        db.add(WorkItem(title=title, project_tag="ai_ml", priority="high", status="todo"))
+        db.commit()
+        db.close()
+
+        resp = self.client.get("/work/export?tag=ai_ml&format=csv")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.headers["content-type"], "text/csv; charset=utf-8")
+        self.assertIn("id,title,project_tag,priority,status,due_date,parent_id,created_at", resp.text)
+        self.assertIn(title, resp.text)
+
+    def test_drafts_export_csv_and_read_time(self):
+        import uuid
+        from db.session import SessionLocal
+        from db.models import Draft
+
+        uid = uuid.uuid4().hex[:6]
+        body = "Comprehensive architectural overview of local AI multi-agent orchestration. " * 30
+        db = SessionLocal()
+        d = Draft(platform="medium", type="original", status="draft", content=f"{body} (Ref: {uid})")
+        db.add(d)
+        db.commit()
+        db.close()
+
+        # Test CSV export
+        csv_resp = self.client.get("/drafts/export-all?platform=medium&format=csv")
+        self.assertEqual(csv_resp.status_code, 200)
+        self.assertEqual(csv_resp.headers["content-type"], "text/csv; charset=utf-8")
+        self.assertIn("id,platform,type,status,source_ref,content,created_at", csv_resp.text)
+        self.assertIn(uid, csv_resp.text)
+
+        # Test read time estimate rendering
+        html_resp = self.client.get("/drafts?platform=medium")
+        self.assertEqual(html_resp.status_code, 200)
+        self.assertIn("min read", html_resp.text)
+
 
 if __name__ == "__main__":
     unittest.main()
