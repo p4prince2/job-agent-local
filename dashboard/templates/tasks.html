@@ -4,16 +4,39 @@
 
 {% block content %}
 <div class="card">
-  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.75rem;">
     <div>
       <h2>📋 Task History</h2>
       <p style="color: var(--text-muted); font-size: 0.9rem;">Audit of all requests dispatched to the Prince AI Team.</p>
     </div>
-    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-      <a href="/tasks?status=all" class="btn btn-secondary" style="font-size: 0.8rem; {% if selected_status == 'all' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">All</a>
-      <a href="/tasks?status=completed" class="btn btn-secondary" style="font-size: 0.8rem; {% if selected_status == 'completed' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">Completed</a>
-      <a href="/tasks?status=running" class="btn btn-secondary" style="font-size: 0.8rem; {% if selected_status == 'running' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">Running</a>
-      <a href="/tasks?status=failed" class="btn btn-secondary" style="font-size: 0.8rem; {% if selected_status == 'failed' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">Failed</a>
+    <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+      <a href="/tasks/export-all?status={{ selected_status }}{% if search_query %}&q={{ search_query }}{% endif %}&format=md" class="btn btn-secondary" style="font-size: 0.8rem; text-decoration: none;" title="Download full task history as Markdown digest">
+        📥 Export All .md
+      </a>
+      <a href="/tasks/export-all?status={{ selected_status }}{% if search_query %}&q={{ search_query }}{% endif %}&format=csv" class="btn btn-secondary" style="font-size: 0.8rem; text-decoration: none;" title="Download full task history as CSV spreadsheet">
+        📊 Export All .csv
+      </a>
+      <div style="display: flex; gap: 0.35rem; flex-wrap: wrap;">
+        <a href="/tasks?status=all{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.8rem; {% if selected_status == 'all' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">All</a>
+        <a href="/tasks?status=completed{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.8rem; {% if selected_status == 'completed' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">Completed</a>
+        <a href="/tasks?status=running{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.8rem; {% if selected_status == 'running' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">Running</a>
+        <a href="/tasks?status=failed{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.8rem; {% if selected_status == 'failed' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">Failed</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Search Toolbar -->
+  <div style="background: var(--surface-alt); border: 1px solid var(--border); border-radius: 8px; padding: 0.6rem 1rem; margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+    <form action="/tasks" method="GET" style="display: flex; gap: 0.5rem; align-items: center; margin: 0; flex: 1; max-width: 480px;">
+      <input type="hidden" name="status" value="{{ selected_status }}">
+      <input type="text" name="q" value="{{ search_query }}" placeholder="Search tasks by request or summary..." style="margin: 0; font-size: 0.85rem; height: 32px;">
+      <button type="submit" class="btn btn-secondary" style="font-size: 0.8rem; height: 32px; padding: 0 0.75rem;">Filter</button>
+      {% if search_query %}
+      <a href="/tasks?status={{ selected_status }}" class="btn btn-secondary" style="font-size: 0.8rem; height: 32px; padding: 0 0.75rem; text-decoration: none; display: flex; align-items: center;">Reset</a>
+      {% endif %}
+    </form>
+    <div style="font-size: 0.8rem; color: var(--text-muted);">
+      Total Tasks: <strong>{{ tasks|length }}</strong>
     </div>
   </div>
 
@@ -25,12 +48,12 @@
         <th>Routed Pipeline</th>
         <th>Status</th>
         <th>Created</th>
-        <th style="width: 170px; text-align: right;">Actions</th>
+        <th style="width: 190px; text-align: right;">Actions</th>
       </tr>
     </thead>
     <tbody>
       {% for t in tasks %}
-      <tr>
+      <tr id="task-row-{{ t.id }}">
         <td style="vertical-align: top; font-weight: 700;">#{{ t.id }}</td>
         <td style="vertical-align: top;">
           <strong>{{ t.raw_input }}</strong>
@@ -40,9 +63,15 @@
               🔍 View Agent Trace &amp; Summary
             </summary>
             {% if t.executive_summary %}
-            <div style="margin-top: 0.5rem; padding: 0.5rem; background: var(--surface); border-left: 3px solid var(--primary); border-radius: 4px; font-size: 0.85rem; line-height: 1.5; white-space: pre-wrap;">
-              <strong>👑 Executive Summary:</strong><br>
-              {{ t.executive_summary }}
+            <div style="margin-top: 0.5rem; padding: 0.5rem; background: var(--surface); border-left: 3px solid var(--primary); border-radius: 4px; font-size: 0.85rem; line-height: 1.5;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                <strong>👑 Executive Summary:</strong>
+                <button type="button" class="btn btn-secondary" style="font-size: 0.7rem; padding: 0.15rem 0.4rem;"
+                        onclick="navigator.clipboard.writeText(document.getElementById('task-exec-{{ t.id }}').innerText); this.innerText='✅ Copied'; setTimeout(() => this.innerText='📋 Copy', 2000);">
+                  📋 Copy
+                </button>
+              </div>
+              <div id="task-exec-{{ t.id }}" style="white-space: pre-wrap;">{{ t.executive_summary }}</div>
             </div>
             {% endif %}
             {% if t.agent_runs %}
@@ -84,13 +113,22 @@
           {{ t.created_at.strftime('%Y-%m-%d %H:%M') }}
         </td>
         <td style="vertical-align: top; text-align: right;">
-          <div style="display: flex; gap: 0.4rem; justify-content: flex-end; align-items: center;">
-            <a href="/tasks/export/{{ t.id }}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.5rem; text-decoration: none;" title="Download Task Markdown Audit">
+          <div style="display: flex; gap: 0.35rem; justify-content: flex-end; align-items: center;">
+            <a href="/tasks/export/{{ t.id }}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.45rem; text-decoration: none;" title="Download Task Markdown Audit">
               📥 .md
             </a>
             <form action="/tasks/rerun/{{ t.id }}" method="POST" style="margin: 0;">
-              <button type="submit" class="btn btn-primary" style="font-size: 0.75rem; padding: 0.25rem 0.5rem; background: #6366F1; border: none; cursor: pointer;" title="Re-dispatch this task through the Supervisor">
-                🔄 Re-run
+              <button type="submit" class="btn btn-primary" style="font-size: 0.75rem; padding: 0.25rem 0.45rem; background: #6366F1; border: none; cursor: pointer;" title="Re-dispatch this task through the Supervisor">
+                🔄
+              </button>
+            </form>
+            <form action="/tasks/delete/{{ t.id }}" method="POST"
+                  hx-post="/tasks/delete/{{ t.id }}"
+                  hx-target="#task-row-{{ t.id }}"
+                  hx-swap="outerHTML swap:300ms"
+                  style="margin: 0;" onsubmit="return confirm('Delete this task record?');">
+              <button type="submit" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.45rem; color: #DC2626;" title="Delete this task">
+                🗑️
               </button>
             </form>
           </div>

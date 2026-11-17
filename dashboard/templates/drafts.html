@@ -126,6 +126,11 @@
               Polish
             </button>
           </form>
+          <form action="/drafts/duplicate/{{ d.id }}" method="POST" style="margin: 0;">
+            <button type="submit" class="btn btn-secondary" style="font-size: 0.85rem;" title="Duplicate draft for non-destructive edits">
+              📑 Duplicate
+            </button>
+          </form>
           <a href="/drafts/export/{{ d.id }}" class="btn btn-secondary" style="font-size: 0.85rem; text-decoration: none;">
             📥 Export .md
           </a>

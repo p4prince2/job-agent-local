@@ -65,8 +65,14 @@
 
   {% if task.executive_summary %}
   <div style="margin-top: 1.25rem; padding: 1rem; background: var(--info-bg); border-left: 4px solid var(--primary); border-radius: 4px;">
-    <h4 style="color: var(--primary); margin-bottom: 0.25rem;">👑 Supervisor Executive Summary:</h4>
-    <p style="white-space: pre-wrap; font-size: 0.95rem; line-height: 1.6;">{{ task.executive_summary }}</p>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+      <h4 style="color: var(--primary); margin: 0;">👑 Supervisor Executive Summary:</h4>
+      <button type="button" class="btn btn-secondary" style="font-size: 0.7rem; padding: 0.15rem 0.45rem;"
+              onclick="navigator.clipboard.writeText(document.getElementById('exec-summary-text-{{ task.id }}').innerText); this.innerText='✅ Copied!'; setTimeout(() => this.innerText='📋 Copy', 2000);">
+        📋 Copy
+      </button>
+    </div>
+    <p id="exec-summary-text-{{ task.id }}" style="white-space: pre-wrap; font-size: 0.95rem; line-height: 1.6; margin: 0;">{{ task.executive_summary }}</p>
   </div>
   {% endif %}
 

@@ -222,15 +222,24 @@ def health_badge_endpoint():
 # 2. Tasks History
 # ----------------------------------------------------------------------
 @app.get("/tasks", response_class=HTMLResponse)
-def tasks_page(request: Request, status: Optional[str] = None, db: Session = Depends(get_db)):
+def tasks_page(
+    request: Request,
+    status: Optional[str] = None,
+    q: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
     query = db.query(Task)
     if status and status != "all":
         query = query.filter(Task.status == status.lower())
-    tasks = query.order_by(Task.created_at.desc()).limit(50).all()
+    if q and q.strip():
+        search_term = f"%{q.strip()}%"
+        query = query.filter(Task.raw_input.ilike(search_term) | Task.executive_summary.ilike(search_term))
+    tasks = query.order_by(Task.created_at.desc()).limit(100).all()
     context = get_common_context(db, active_tab="tasks")
     context.update({
         "tasks": tasks,
-        "selected_status": status or "all"
+        "selected_status": status or "all",
+        "search_query": q or ""
     })
     return templates.TemplateResponse(request=request, name="tasks.html", context=context)
 
@@ -291,6 +300,82 @@ def export_task_audit_endpoint(task_id: int, db: Session = Depends(get_db)):
         media_type="text/markdown; charset=utf-8",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'}
     )
+
+
+@app.get("/tasks/export-all")
+def export_all_tasks_endpoint(
+    status: Optional[str] = None,
+    q: Optional[str] = None,
+    format: Optional[str] = "md",
+    db: Session = Depends(get_db)
+):
+    query = db.query(Task)
+    if status and status != "all":
+        query = query.filter(Task.status == status.lower())
+    if q and q.strip():
+        search_term = f"%{q.strip()}%"
+        query = query.filter(Task.raw_input.ilike(search_term) | Task.executive_summary.ilike(search_term))
+    tasks = query.order_by(Task.created_at.desc()).all()
+
+    if format and format.lower() == "csv":
+        import io, csv
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["id", "raw_input", "status", "routed_agents", "executive_summary", "created_at", "completed_at"])
+        for t in tasks:
+            writer.writerow([
+                t.id,
+                t.raw_input,
+                t.status,
+                ", ".join(t.get_routed_agents()),
+                t.executive_summary or "",
+                t.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+                t.completed_at.strftime('%Y-%m-%d %H:%M:%S') if t.completed_at else ""
+            ])
+        filename = f"tasks_history_{status or 'all'}.csv"
+        return Response(
+            content=output.getvalue(),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+        )
+
+    filename = f"tasks_history_{status or 'all'}.md"
+    body = f"# Prince AI Team - Task History Digest\n\n"
+    body += f"- Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}\n"
+    body += f"- Filter: Status={status or 'all'}, Query='{q or ''}'\n"
+    body += f"- Total Tasks: {len(tasks)}\n\n---\n\n"
+
+    for t in tasks:
+        body += f"## Task #{t.id} - {t.status.upper()}\n\n"
+        body += f"- **Request:** {t.raw_input}\n"
+        body += f"- **Pipeline:** {', '.join(t.get_routed_agents())}\n"
+        body += f"- **Created:** {t.created_at.strftime('%Y-%m-%d %H:%M:%S UTC')}\n"
+        if t.completed_at:
+            body += f"- **Completed:** {t.completed_at.strftime('%Y-%m-%d %H:%M:%S UTC')}\n"
+        if t.executive_summary:
+            body += f"\n### Executive Summary\n\n{t.executive_summary}\n"
+        if t.agent_runs:
+            body += "\n### Agent Steps\n\n"
+            for run in t.agent_runs:
+                body += f"- **{run.agent_name}** ({run.status})\n"
+        body += "\n---\n\n"
+
+    return Response(
+        content=body,
+        media_type="text/markdown; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )
+
+
+@app.post("/tasks/delete/{task_id}")
+def delete_task_endpoint(request: Request, task_id: int, db: Session = Depends(get_db)):
+    task = db.query(Task).filter(Task.id == task_id).first()
+    if task:
+        db.delete(task)
+        db.commit()
+    if request.headers.get("HX-Request"):
+        return HTMLResponse("")
+    return RedirectResponse(url="/tasks", status_code=303)
 
 
 # ----------------------------------------------------------------------
@@ -487,6 +572,27 @@ def polish_draft_endpoint(
     return RedirectResponse(url="/drafts", status_code=303)
 
 
+@app.post("/drafts/duplicate/{draft_id}")
+def duplicate_draft_endpoint(draft_id: int, db: Session = Depends(get_db)):
+    """Duplicates an existing draft to enable non-destructive branch editing."""
+    original = db.query(Draft).filter(Draft.id == draft_id).first()
+    if not original:
+        raise HTTPException(status_code=404, detail="Draft not found")
+    dup = Draft(
+        platform=original.platform,
+        type=f"{original.type}_copy",
+        status="draft",
+        source_ref=original.source_ref,
+        content=original.content,
+        created_at=datetime.now(timezone.utc)
+    )
+    db.add(dup)
+    db.commit()
+    db.refresh(dup)
+    logger.info(f"Duplicated draft #{original.id} -> #{dup.id}")
+    return RedirectResponse(url="/drafts", status_code=303)
+
+
 # ----------------------------------------------------------------------
 # 4. Daily Work & Reminders (CRUD)
 # ----------------------------------------------------------------------
@@ -581,6 +687,24 @@ def clear_completed_work_items(db: Session = Depends(get_db)):
     for item in completed:
         db.delete(item)
     db.commit()
+    return RedirectResponse(url="/work", status_code=303)
+
+
+@app.post("/work/complete-all")
+def complete_all_work_items_endpoint(
+    tag: Optional[str] = Form(None),
+    db: Session = Depends(get_db)
+):
+    query = db.query(WorkItem).filter(WorkItem.status != "done")
+    if tag and tag != "all":
+        query = query.filter(WorkItem.project_tag == tag.lower())
+    items = query.all()
+    now_utc = datetime.now(timezone.utc)
+    for it in items:
+        it.status = "done"
+        it.completed_at = now_utc
+    db.commit()
+    logger.info(f"Marked {len(items)} work items as done (tag: {tag or 'all'})")
     return RedirectResponse(url="/work", status_code=303)
 
 

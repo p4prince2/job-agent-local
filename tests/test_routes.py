@@ -915,6 +915,122 @@ Architecture diagram with SQLite and local LLM icons.
         self.assertEqual(html_resp.status_code, 200)
         self.assertIn("min read", html_resp.text)
 
+    def test_tasks_search_and_filter(self):
+        import uuid
+        from datetime import datetime, timezone
+        from db.session import SessionLocal
+        from db.models import Task
+
+        uid = uuid.uuid4().hex[:6]
+        req_text = f"Audit mission critical gateway {uid}"
+        db = SessionLocal()
+        t = Task(raw_input=req_text, status="completed", executive_summary=f"Audit completed for {uid}", created_at=datetime.now(timezone.utc))
+        db.add(t)
+        db.commit()
+        db.close()
+
+        resp = self.client.get(f"/tasks?q={uid}")
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn(req_text, resp.text)
+        self.assertIn(f"Audit completed for {uid}", resp.text)
+
+    def test_tasks_export_all_md_and_csv(self):
+        import uuid
+        from datetime import datetime, timezone
+        from db.session import SessionLocal
+        from db.models import Task
+
+        uid = uuid.uuid4().hex[:6]
+        db = SessionLocal()
+        t = Task(raw_input=f"Task for export {uid}", status="completed", executive_summary=f"Summary for {uid}", created_at=datetime.now(timezone.utc))
+        db.add(t)
+        db.commit()
+        db.close()
+
+        # Markdown export
+        md_resp = self.client.get(f"/tasks/export-all?q={uid}&format=md")
+        self.assertEqual(md_resp.status_code, 200)
+        self.assertEqual(md_resp.headers["content-type"], "text/markdown; charset=utf-8")
+        self.assertIn("Task History Digest", md_resp.text)
+        self.assertIn(f"Task for export {uid}", md_resp.text)
+
+        # CSV export
+        csv_resp = self.client.get(f"/tasks/export-all?q={uid}&format=csv")
+        self.assertEqual(csv_resp.status_code, 200)
+        self.assertEqual(csv_resp.headers["content-type"], "text/csv; charset=utf-8")
+        self.assertIn("id,raw_input,status,routed_agents,executive_summary,created_at,completed_at", csv_resp.text)
+        self.assertIn(f"Task for export {uid}", csv_resp.text)
+
+    def test_tasks_delete_endpoint(self):
+        from datetime import datetime, timezone
+        from db.session import SessionLocal
+        from db.models import Task
+
+        db = SessionLocal()
+        t = Task(raw_input="Task to be deleted", status="failed", created_at=datetime.now(timezone.utc))
+        db.add(t)
+        db.commit()
+        db.refresh(t)
+        t_id = t.id
+        db.close()
+
+        # Test HTMX delete
+        del_resp = self.client.post(f"/tasks/delete/{t_id}", headers={"HX-Request": "true"})
+        self.assertEqual(del_resp.status_code, 200)
+        self.assertEqual(del_resp.text, "")
+
+        db = SessionLocal()
+        deleted = db.query(Task).filter(Task.id == t_id).first()
+        self.assertIsNone(deleted)
+        db.close()
+
+    def test_draft_duplicate_endpoint(self):
+        import uuid
+        from db.session import SessionLocal
+        from db.models import Draft
+
+        uid = uuid.uuid4().hex[:6]
+        db = SessionLocal()
+        d = Draft(platform="linkedin", type="original", status="draft", content=f"Original high-signal draft {uid}")
+        db.add(d)
+        db.commit()
+        db.refresh(d)
+        d_id = d.id
+        db.close()
+
+        dup_resp = self.client.post(f"/drafts/duplicate/{d_id}", follow_redirects=False)
+        self.assertEqual(dup_resp.status_code, 303)
+
+        db = SessionLocal()
+        copies = db.query(Draft).filter(Draft.type == "original_copy").all()
+        self.assertTrue(any(uid in c.content for c in copies))
+        db.close()
+
+    def test_work_complete_all_endpoint(self):
+        import uuid
+        from db.session import SessionLocal
+        from db.models import WorkItem
+
+        uid = uuid.uuid4().hex[:6]
+        tag_name = f"tag_{uid}"
+        db = SessionLocal()
+        w1 = WorkItem(title=f"Sub-goal A {uid}", project_tag=tag_name, priority="high", status="todo")
+        w2 = WorkItem(title=f"Sub-goal B {uid}", project_tag=tag_name, priority="low", status="todo")
+        db.add(w1)
+        db.add(w2)
+        db.commit()
+        db.close()
+
+        resp = self.client.post("/work/complete-all", data={"tag": tag_name}, follow_redirects=False)
+        self.assertEqual(resp.status_code, 303)
+
+        db = SessionLocal()
+        items = db.query(WorkItem).filter(WorkItem.project_tag == tag_name).all()
+        self.assertEqual(len(items), 2)
+        self.assertTrue(all(it.status == "done" for it in items))
+        self.assertTrue(all(it.completed_at is not None for it in items))
+        db.close()
+
 
 if __name__ == "__main__":
     unittest.main()

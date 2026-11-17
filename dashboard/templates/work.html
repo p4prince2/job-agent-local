@@ -49,6 +49,12 @@
             <a href="/work/export?tag={{ selected_tag }}&status={{ selected_status }}&priority={{ selected_priority }}&format=csv" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.6rem; text-decoration: none;" title="Download tasks as CSV spreadsheet">
               📊 Export .csv
             </a>
+            <form action="/work/complete-all" method="POST" style="margin: 0;" onsubmit="return confirm('Mark all {{ selected_tag }} tasks as completed?');">
+              <input type="hidden" name="tag" value="{{ selected_tag }}">
+              <button type="submit" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.6rem; color: #059669;" title="Mark all matching tasks as done">
+                ✅ Complete All
+              </button>
+            </form>
             <form action="/work/clear-completed" method="POST" style="margin: 0;" onsubmit="return confirm('Clear all completed items?');">
               <button type="submit" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.6rem; color: #DC2626;" title="Remove done tasks">
                 🧹 Clear Done
