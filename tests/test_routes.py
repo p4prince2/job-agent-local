@@ -1136,6 +1136,99 @@ Architecture diagram with SQLite and local LLM icons.
         self.assertTrue(len(variations) > 0)
         db.close()
 
+    def test_settings_backup_endpoint(self):
+        resp = self.client.get("/settings/backup")
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("application/x-sqlite3", resp.headers.get("content-type", ""))
+        self.assertIn("attachment; filename=", resp.headers.get("content-disposition", ""))
+        self.assertIn("prince_ai_team_backup_", resp.headers.get("content-disposition", ""))
+        self.assertTrue(len(resp.content) > 0)
+
+    def test_work_subtask_manual_add(self):
+        import uuid
+        from db.session import SessionLocal
+        from db.models import WorkItem
+
+        uid = uuid.uuid4().hex[:6]
+        db = SessionLocal()
+        parent = WorkItem(title=f"Parent Goal {uid}", project_tag="gate_prep", priority="high", status="todo")
+        db.add(parent)
+        db.commit()
+        db.refresh(parent)
+        p_id = parent.id
+        db.close()
+
+        # Add valid subtask
+        resp = self.client.post(
+            f"/work/subtasks/add/{p_id}",
+            data={"title": f"Subtask Step 1 {uid}", "priority": "high", "due_date": "2026-12-01"},
+            follow_redirects=False
+        )
+        self.assertEqual(resp.status_code, 303)
+
+        db = SessionLocal()
+        child = db.query(WorkItem).filter(WorkItem.parent_id == p_id).first()
+        self.assertIsNotNone(child)
+        self.assertEqual(child.title, f"Subtask Step 1 {uid}")
+        self.assertEqual(child.project_tag, "gate_prep")
+        self.assertEqual(child.priority, "high")
+        self.assertEqual(child.due_date, "2026-12-01")
+        db.close()
+
+        # Reject empty title
+        bad_resp = self.client.post(
+            f"/work/subtasks/add/{p_id}",
+            data={"title": "   ", "priority": "medium"},
+            follow_redirects=False
+        )
+        self.assertEqual(bad_resp.status_code, 400)
+
+        # Reject non-existent parent
+        missing_resp = self.client.post(
+            "/work/subtasks/add/999999",
+            data={"title": "Invalid Child"},
+            follow_redirects=False
+        )
+        self.assertEqual(missing_resp.status_code, 404)
+
+    def test_work_priority_cycle(self):
+        import uuid
+        from db.session import SessionLocal
+        from db.models import WorkItem
+
+        uid = uuid.uuid4().hex[:6]
+        db = SessionLocal()
+        item = WorkItem(title=f"Task to Cycle {uid}", project_tag="ai_ml", priority="low", status="todo")
+        db.add(item)
+        db.commit()
+        db.refresh(item)
+        item_id = item.id
+        db.close()
+
+        # low -> medium
+        r1 = self.client.post(f"/work/priority/cycle/{item_id}", follow_redirects=False)
+        self.assertEqual(r1.status_code, 303)
+        db = SessionLocal()
+        i1 = db.query(WorkItem).filter(WorkItem.id == item_id).first()
+        self.assertEqual(i1.priority, "medium")
+        db.close()
+
+        # medium -> high
+        r2 = self.client.post(f"/work/priority/cycle/{item_id}", follow_redirects=False)
+        self.assertEqual(r2.status_code, 303)
+        db = SessionLocal()
+        i2 = db.query(WorkItem).filter(WorkItem.id == item_id).first()
+        self.assertEqual(i2.priority, "high")
+        db.close()
+
+        # high -> low
+        r3 = self.client.post(f"/work/priority/cycle/{item_id}", follow_redirects=False)
+        self.assertEqual(r3.status_code, 303)
+        db = SessionLocal()
+        i3 = db.query(WorkItem).filter(WorkItem.id == item_id).first()
+        self.assertEqual(i3.priority, "low")
+        db.close()
+
 
 if __name__ == "__main__":
     unittest.main()

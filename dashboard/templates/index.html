@@ -66,30 +66,73 @@
       </form>
 
       <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border);">
-        <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">QUICK TEMPLATES:</span>
-        <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.5rem;">
-          <button class="btn btn-secondary" style="font-size: 0.8rem; justify-content: flex-start; text-align: left;"
-            onclick="document.getElementById('prompt').value = 'https://x.com/satyanadella/status/2109631106404487523?s=20';">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.6rem;">
+          <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">⚡ Quick Prompt Presets:</span>
+          <div style="display: flex; gap: 0.25rem; flex-wrap: wrap;" id="template-category-tabs">
+            <button type="button" class="btn btn-secondary active-cat" style="font-size: 0.7rem; padding: 0.15rem 0.45rem; background: var(--primary); color: white;" onclick="filterPromptTemplates('all', this)">All</button>
+            <button type="button" class="btn btn-secondary" style="font-size: 0.7rem; padding: 0.15rem 0.45rem;" onclick="filterPromptTemplates('content', this)">Content</button>
+            <button type="button" class="btn btn-secondary" style="font-size: 0.7rem; padding: 0.15rem 0.45rem;" onclick="filterPromptTemplates('github', this)">GitHub</button>
+            <button type="button" class="btn btn-secondary" style="font-size: 0.7rem; padding: 0.15rem 0.45rem;" onclick="filterPromptTemplates('work', this)">Work</button>
+            <button type="button" class="btn btn-secondary" style="font-size: 0.7rem; padding: 0.15rem 0.45rem;" onclick="filterPromptTemplates('deepdive', this)">Deep Dive</button>
+          </div>
+        </div>
+
+        <div id="prompt-template-list" style="display: flex; flex-direction: column; gap: 0.5rem;">
+          <button type="button" class="btn btn-secondary prompt-template-btn" data-category="content" style="font-size: 0.8rem; justify-content: flex-start; text-align: left;"
+            onclick="selectPromptTemplate('https://x.com/satyanadella/status/2109631106404487523?s=20');">
             🐦 Ingest X / Tech Post &amp; Draft High-Signal Replies + Analysis
           </button>
-          <button class="btn btn-secondary" style="font-size: 0.8rem; justify-content: flex-start; text-align: left;"
-            onclick="document.getElementById('prompt').value = 'Review my GitHub repo prince-ai-team and create a LinkedIn post about the architecture.';">
+          <button type="button" class="btn btn-secondary prompt-template-btn" data-category="github" style="font-size: 0.8rem; justify-content: flex-start; text-align: left;"
+            onclick="selectPromptTemplate('Review my GitHub repo prince-ai-team and create a LinkedIn post about the architecture.');">
             🐙 Review GitHub Repo &amp; Draft LinkedIn Post
           </button>
-          <button class="btn btn-secondary" style="font-size: 0.8rem; justify-content: flex-start; text-align: left;"
-            onclick="document.getElementById('prompt').value = 'Help me plan my day: 3 hours of GATE prep and 2 hours of AI agent fine-tuning.';">
+          <button type="button" class="btn btn-secondary prompt-template-btn" data-category="work" style="font-size: 0.8rem; justify-content: flex-start; text-align: left;"
+            onclick="selectPromptTemplate('Help me plan my day: 3 hours of GATE prep and 2 hours of AI agent fine-tuning.');">
             📅 Plan Today: GATE Prep + AI/ML Work
           </button>
-          <button class="btn btn-secondary" style="font-size: 0.8rem; justify-content: flex-start; text-align: left;"
-            onclick="document.getElementById('prompt').value = 'Draft a high-signal reply to a post claiming autonomous AI agents are ready for full production automation.';">
+          <button type="button" class="btn btn-secondary prompt-template-btn" data-category="content" style="font-size: 0.8rem; justify-content: flex-start; text-align: left;"
+            onclick="selectPromptTemplate('Draft a high-signal reply to a post claiming autonomous AI agents are ready for full production automation.');">
             ✍️ Draft High-Signal LinkedIn Reply
           </button>
-          <button class="btn btn-secondary" style="font-size: 0.8rem; justify-content: flex-start; text-align: left;"
-            onclick="document.getElementById('prompt').value = 'Automate my Windows browser to click on a website and delete temporary files.';">
-            💻 Test Computer Automation Stub (Phase 2)
+          <button type="button" class="btn btn-secondary prompt-template-btn" data-category="deepdive" style="font-size: 0.8rem; justify-content: flex-start; text-align: left;"
+            onclick="selectPromptTemplate('Write a deep technical comparison between local RAG architectures and long-context fine-tuning trade-offs.');">
+            🔬 Technical Architecture Analysis: Local RAG vs Long-Context
+          </button>
+          <button type="button" class="btn btn-secondary prompt-template-btn" data-category="work" style="font-size: 0.8rem; justify-content: flex-start; text-align: left;"
+            onclick="selectPromptTemplate('Create 4 structured milestones for mastering Graph Theory algorithms for GATE Computer Science.');">
+            🎯 GATE Milestone Breakdown: Graph Theory Algorithms
+          </button>
+          <button type="button" class="btn btn-secondary prompt-template-btn" data-category="deepdive" style="font-size: 0.8rem; justify-content: flex-start; text-align: left;"
+            onclick="selectPromptTemplate('Automate my Windows browser to click on a website and delete temporary files.');">
+            💻 Test Computer Automation Stub (Phase 2 Safety Boundary)
           </button>
         </div>
       </div>
+
+      <script>
+        function selectPromptTemplate(text) {
+          const area = document.getElementById('prompt');
+          area.value = text;
+          area.focus();
+          area.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        function filterPromptTemplates(category, clickedBtn) {
+          document.querySelectorAll('#template-category-tabs button').forEach(b => {
+            b.style.background = 'var(--surface)';
+            b.style.color = 'var(--text-main)';
+          });
+          clickedBtn.style.background = 'var(--primary)';
+          clickedBtn.style.color = 'white';
+
+          document.querySelectorAll('.prompt-template-btn').forEach(btn => {
+            if (category === 'all' || btn.getAttribute('data-category') === category) {
+              btn.style.display = 'flex';
+            } else {
+              btn.style.display = 'none';
+            }
+          });
+        }
+      </script>
     </div>
   </div>
 

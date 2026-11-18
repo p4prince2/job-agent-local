@@ -94,8 +94,9 @@
         </div>
       </div>
 
+      <div id="draft-preview-{{ d.id }}" style="display: none; background: var(--surface-alt); border: 1px solid var(--border); border-radius: 6px; padding: 1rem; font-size: 0.9rem; line-height: 1.6; white-space: pre-wrap; margin-bottom: 0.75rem;">{{ d.content }}</div>
       <form id="draft-form-{{ d.id }}" action="/drafts/update/{{ d.id }}" method="POST">
-        <textarea name="content" rows="8" style="font-family: inherit; font-size: 0.9rem; width: 100%;" required>{{ d.content }}</textarea>
+        <textarea id="draft-text-{{ d.id }}" name="content" rows="8" style="font-family: inherit; font-size: 0.9rem; width: 100%;" required>{{ d.content }}</textarea>
       </form>
       <div style="margin-top: 0.75rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
         <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
@@ -143,6 +144,9 @@
           <button type="button" class="btn btn-secondary" style="font-size: 0.85rem;" onclick="navigator.clipboard.writeText(document.getElementById('draft-form-{{ d.id }}').content.value); const btn = this; btn.textContent = '✅ Copied!'; setTimeout(() => { btn.textContent = '📋 Copy'; }, 1500);">
             📋 Copy
           </button>
+          <button type="button" class="btn btn-secondary" style="font-size: 0.85rem;" onclick="toggleDraftPreview('{{ d.id }}', this)">
+            👁️ Preview
+          </button>
         </div>
         <div style="display: flex; gap: 0.5rem; align-items: center;">
           {% if d.status == 'draft' %}
@@ -175,4 +179,23 @@
     {% endfor %}
   </div>
 </div>
+
+<script>
+  function toggleDraftPreview(id, btn) {
+    const preview = document.getElementById('draft-preview-' + id);
+    const form = document.getElementById('draft-form-' + id);
+    const textarea = document.getElementById('draft-text-' + id);
+    if (!preview || !form || !textarea) return;
+    if (preview.style.display === 'none') {
+      preview.textContent = textarea.value;
+      preview.style.display = 'block';
+      form.style.display = 'none';
+      btn.textContent = '✏️ Edit View';
+    } else {
+      preview.style.display = 'none';
+      form.style.display = 'block';
+      btn.textContent = '👁️ Preview';
+    }
+  }
+</script>
 {% endblock %}

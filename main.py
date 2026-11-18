@@ -8,7 +8,7 @@ in-process APScheduler reminders, and safety approval management.
 from typing import Optional
 from datetime import datetime, timedelta, timezone
 from fastapi import FastAPI, Request, Form, Depends, HTTPException, BackgroundTasks
-from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi.responses import HTMLResponse, RedirectResponse, Response, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
@@ -806,6 +806,59 @@ def delete_work_item_endpoint(request: Request, item_id: int, db: Session = Depe
     return RedirectResponse(url="/work", status_code=303)
 
 
+@app.post("/work/subtasks/add/{parent_id}")
+def add_subtask_endpoint(
+    parent_id: int,
+    title: str = Form(...),
+    priority: Optional[str] = Form("medium"),
+    due_date: Optional[str] = Form(None),
+    db: Session = Depends(get_db)
+):
+    parent = db.query(WorkItem).filter(WorkItem.id == parent_id).first()
+    if not parent:
+        raise HTTPException(status_code=404, detail="Parent work item not found")
+
+    clean_title = title.strip()
+    if not clean_title:
+        raise HTTPException(status_code=400, detail="Subtask title cannot be empty")
+
+    clean_due = due_date.strip() if due_date and due_date.strip() else None
+    clean_pri = priority.strip().lower() if priority and priority.strip().lower() in ["high", "medium", "low"] else "medium"
+
+    subtask = WorkItem(
+        title=clean_title,
+        project_tag=parent.project_tag,
+        priority=clean_pri,
+        due_date=clean_due,
+        parent_id=parent.id,
+        status="todo",
+        created_at=datetime.now(timezone.utc)
+    )
+    db.add(subtask)
+    db.commit()
+    db.refresh(subtask)
+    log_event("DailyWorkAgent", f"Added manual subtask '{subtask.title}' under WorkItem #{parent.id}")
+    return RedirectResponse(url="/work", status_code=303)
+
+
+@app.post("/work/priority/cycle/{item_id}")
+def cycle_work_item_priority(
+    item_id: int,
+    db: Session = Depends(get_db)
+):
+    item = db.query(WorkItem).filter(WorkItem.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Work item not found")
+
+    cycle_map = {"low": "medium", "medium": "high", "high": "low"}
+    old_pri = (item.priority or "medium").lower()
+    item.priority = cycle_map.get(old_pri, "medium")
+    db.commit()
+    db.refresh(item)
+    log_event("DailyWorkAgent", f"Updated priority for WorkItem #{item.id}: {old_pri} -> {item.priority}")
+    return RedirectResponse(url="/work", status_code=303)
+
+
 @app.post("/work/reminders/create")
 def create_reminder_endpoint(
     work_item_id: Optional[str] = Form(None),
@@ -1281,6 +1334,27 @@ def request_model_change_endpoint(
         db=db
     )
     return RedirectResponse(url="/approvals", status_code=303)
+
+
+@app.get("/settings/backup")
+def backup_database_endpoint():
+    """Download a snapshot of the local SQLite database for disaster recovery and portability."""
+    from pathlib import Path
+    db_path = BASE_DIR / "data" / "prince_ai_team.db"
+    if not db_path.exists():
+        local_path = Path("data/prince_ai_team.db")
+        if local_path.exists():
+            db_path = local_path
+        else:
+            raise HTTPException(status_code=404, detail="Database file not found on disk.")
+
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    backup_filename = f"prince_ai_team_backup_{timestamp}.db"
+    return FileResponse(
+        path=str(db_path),
+        filename=backup_filename,
+        media_type="application/x-sqlite3"
+    )
 
 
 if __name__ == "__main__":
