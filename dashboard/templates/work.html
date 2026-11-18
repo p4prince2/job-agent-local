@@ -27,8 +27,16 @@
             <option value="medium" selected>Medium Priority</option>
             <option value="low">Low Priority</option>
           </select>
-          <input type="text" name="due_date" placeholder="Due (YYYY-MM-DD)" style="margin: 0; font-size: 0.85rem;">
+          <input type="text" id="task-due-input" name="due_date" placeholder="Due (YYYY-MM-DD)" style="margin: 0; font-size: 0.85rem;">
           <button type="submit" class="btn btn-primary" style="font-size: 0.85rem;">Add</button>
+        </div>
+        <div style="display: flex; gap: 0.35rem; margin-top: 0.5rem; align-items: center; flex-wrap: wrap;">
+          <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600;">DUE SHORTCUTS:</span>
+          <button type="button" class="btn btn-secondary" style="font-size: 0.7rem; padding: 0.15rem 0.45rem;" onclick="setTaskDueDate(0)">Today</button>
+          <button type="button" class="btn btn-secondary" style="font-size: 0.7rem; padding: 0.15rem 0.45rem;" onclick="setTaskDueDate(1)">Tomorrow</button>
+          <button type="button" class="btn btn-secondary" style="font-size: 0.7rem; padding: 0.15rem 0.45rem;" onclick="setTaskDueDate(3)">+3 Days</button>
+          <button type="button" class="btn btn-secondary" style="font-size: 0.7rem; padding: 0.15rem 0.45rem;" onclick="setTaskDueDate(7)">+1 Week</button>
+          <button type="button" class="btn btn-secondary" style="font-size: 0.7rem; padding: 0.15rem 0.45rem;" onclick="document.getElementById('task-due-input').value=''">Clear</button>
         </div>
       </form>
 
@@ -215,4 +223,18 @@
     </div>
   </div>
 </div>
+
+<script>
+function setTaskDueDate(days) {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const inp = document.getElementById('task-due-input');
+  if (inp) {
+    inp.value = `${yyyy}-${mm}-${dd}`;
+  }
+}
+</script>
 {% endblock %}

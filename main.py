@@ -1179,6 +1179,7 @@ def export_logs_endpoint(
     agent: Optional[str] = None,
     level: Optional[str] = None,
     q: Optional[str] = None,
+    format: Optional[str] = "txt",
     db: Session = Depends(get_db)
 ):
     query = db.query(Log)
@@ -1189,6 +1190,20 @@ def export_logs_endpoint(
     if q and q.strip():
         query = query.filter(Log.message.ilike(f"%{q.strip()}%"))
     logs = query.order_by(Log.created_at.desc()).limit(1000).all()
+
+    if format and format.lower() == "csv":
+        import io, csv
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["id", "created_at", "level", "agent_name", "message"])
+        for l in logs:
+            writer.writerow([l.id, l.created_at.strftime('%Y-%m-%d %H:%M:%S'), l.level, l.agent_name, l.message])
+        filename = f"agent_logs_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.csv"
+        return Response(
+            content=output.getvalue(),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+        )
 
     filename = f"agent_logs_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.txt"
     lines = [

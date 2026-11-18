@@ -1089,6 +1089,53 @@ Architecture diagram with SQLite and local LLM icons.
         self.assertIn("Drafts", resp.text)
         self.assertIn("Work Items", resp.text)
 
+    def test_logs_export_csv_and_txt(self):
+        import uuid
+        from db.session import SessionLocal
+        from db.models import Log
+
+        uid = uuid.uuid4().hex[:6]
+        msg = f"Auditing subsystem logger {uid}"
+        db = SessionLocal()
+        db.add(Log(agent_name="TestAgent", level="INFO", message=msg))
+        db.commit()
+        db.close()
+
+        # Test TXT export
+        txt_resp = self.client.get(f"/logs/export?q={uid}&format=txt")
+        self.assertEqual(txt_resp.status_code, 200)
+        self.assertIn("text/plain", txt_resp.headers["content-type"])
+        self.assertIn(msg, txt_resp.text)
+
+        # Test CSV export
+        csv_resp = self.client.get(f"/logs/export?q={uid}&format=csv")
+        self.assertEqual(csv_resp.status_code, 200)
+        self.assertEqual(csv_resp.headers["content-type"], "text/csv; charset=utf-8")
+        self.assertIn("id,created_at,level,agent_name,message", csv_resp.text)
+        self.assertIn(msg, csv_resp.text)
+
+    def test_reroll_draft_with_angle_hint(self):
+        import uuid
+        from db.session import SessionLocal
+        from db.models import Draft
+
+        uid = uuid.uuid4().hex[:6]
+        db = SessionLocal()
+        d = Draft(platform="linkedin", type="original", status="draft", content=f"Initial technical post about caching {uid}")
+        db.add(d)
+        db.commit()
+        db.refresh(d)
+        d_id = d.id
+        db.close()
+
+        resp = self.client.post(f"/drafts/re-roll/{d_id}", data={"angle_hint": "contrarian_take"}, follow_redirects=False)
+        self.assertEqual(resp.status_code, 303)
+
+        db = SessionLocal()
+        variations = db.query(Draft).filter(Draft.type == "original_variation").all()
+        self.assertTrue(len(variations) > 0)
+        db.close()
+
 
 if __name__ == "__main__":
     unittest.main()
