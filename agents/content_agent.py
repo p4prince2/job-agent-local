@@ -284,12 +284,12 @@ class ContentAgent:
     def _extract_section(self, text: str, header: str) -> str:
         """Extracts content under markdown headings flexibly."""
         header_clean = re.sub(r"^\d+\.\s*", "", header).strip().lower()
-        parts = re.split(r"(?:^|\n)#{2,4}\s*", text)
+        parts = re.split(r"(?:^|\n)(?:#{1,4}\s*|\*{2}\d*\.?\s*)", text)
         for p in parts:
             lines = p.strip().split("\n")
             if not lines:
                 continue
-            first_line = lines[0].strip().lower()
+            first_line = lines[0].strip().lower().replace("*", "")
             if header.lower() in first_line or header_clean in first_line:
                 return "\n".join(lines[1:]).strip()
         return ""

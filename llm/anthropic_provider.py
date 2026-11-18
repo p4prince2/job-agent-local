@@ -1,7 +1,7 @@
 """Optional Anthropic API provider for Prince AI Team."""
 
 import requests
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 from config import ANTHROPIC_API_KEY
 from llm.base import LLMProvider
 from logging_utils.logger import get_logger
@@ -28,13 +28,26 @@ class AnthropicProvider(LLMProvider):
 
     def generate(
         self,
-        messages: List[Dict[str, str]],
+        messages: Union[List[Dict[str, str]], str],
         system_prompt: Optional[str] = None,
         temperature: float = 0.7,
         json_mode: bool = False
     ) -> str:
         if not self.api_key:
             return "[Error: ANTHROPIC_API_KEY not configured]"
+
+        # Normalize messages
+        if isinstance(messages, str):
+            normalized_msgs = [{"role": "user", "content": messages}]
+        elif isinstance(messages, list):
+            normalized_msgs = []
+            for m in messages:
+                if isinstance(m, str):
+                    normalized_msgs.append({"role": "user", "content": m})
+                elif isinstance(m, dict):
+                    normalized_msgs.append(m)
+        else:
+            normalized_msgs = [{"role": "user", "content": str(messages)}]
 
         headers = {
             "x-api-key": self.api_key,
@@ -44,7 +57,7 @@ class AnthropicProvider(LLMProvider):
 
         # Filter and structure messages for Anthropic API
         formatted = []
-        for m in messages:
+        for m in normalized_msgs:
             role = "user" if m.get("role") in ("user", "system") else "assistant"
             formatted.append({"role": role, "content": m.get("content", "")})
 

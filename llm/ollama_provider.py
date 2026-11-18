@@ -2,7 +2,7 @@
 
 import json
 import requests
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 import os
 from config import OLLAMA_HOST, OLLAMA_MODEL
 from llm.base import LLMProvider
@@ -18,6 +18,7 @@ class OllamaProvider(LLMProvider):
         self.host = (host or OLLAMA_HOST).rstrip("/")
         self.model = model or OLLAMA_MODEL
         self.timeout = int(os.getenv("OLLAMA_TIMEOUT", "300"))
+        self.num_ctx = int(os.getenv("OLLAMA_NUM_CTX", "4096"))
 
     def check_status(self) -> Dict[str, Any]:
         """Verifies if Ollama is online and lists available models."""
@@ -51,23 +52,37 @@ class OllamaProvider(LLMProvider):
 
     def generate(
         self,
-        messages: List[Dict[str, str]],
+        messages: Union[List[Dict[str, str]], str],
         system_prompt: Optional[str] = None,
         temperature: float = 0.7,
         json_mode: bool = False
     ) -> str:
-        """Calls local Ollama /api/chat."""
+        """Calls local Ollama /api/chat with normalized messages and bounded context."""
+        # Normalize input messages
+        if isinstance(messages, str):
+            normalized_msgs = [{"role": "user", "content": messages}]
+        elif isinstance(messages, list):
+            normalized_msgs = []
+            for m in messages:
+                if isinstance(m, str):
+                    normalized_msgs.append({"role": "user", "content": m})
+                elif isinstance(m, dict):
+                    normalized_msgs.append(m)
+        else:
+            normalized_msgs = [{"role": "user", "content": str(messages)}]
+
         formatted_msgs = []
         if system_prompt:
             formatted_msgs.append({"role": "system", "content": system_prompt})
-        formatted_msgs.extend(messages)
+        formatted_msgs.extend(normalized_msgs)
 
         payload: Dict[str, Any] = {
             "model": self.model,
             "messages": formatted_msgs,
             "stream": False,
             "options": {
-                "temperature": temperature
+                "temperature": temperature,
+                "num_ctx": self.num_ctx
             }
         }
         if json_mode:

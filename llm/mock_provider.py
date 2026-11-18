@@ -1,6 +1,6 @@
 """Offline / Mock LLM Provider for rapid local development and automated CI testing."""
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 from llm.base import LLMProvider
 
 
@@ -22,12 +22,17 @@ class MockProvider(LLMProvider):
 
     def generate(
         self,
-        messages: List[Dict[str, str]],
+        messages: Union[List[Dict[str, str]], str],
         system_prompt: Optional[str] = None,
         temperature: float = 0.7,
         json_mode: bool = False
     ) -> str:
-        prompt_text = " ".join([m.get("content", "") for m in messages]).lower()
+        if isinstance(messages, str):
+            prompt_text = messages.lower()
+        elif isinstance(messages, list):
+            prompt_text = " ".join([m.get("content", "") if isinstance(m, dict) else str(m) for m in messages]).lower()
+        else:
+            prompt_text = str(messages).lower()
 
         # Handle Content Agent original post pipeline
         if "original post pipeline" in (system_prompt or "").lower():

@@ -78,6 +78,33 @@ class TestDailyWorkAgent(unittest.TestCase):
                 self.db.delete(obj)
         self.db.commit()
 
+    def test_timestamp_range_title_extraction(self):
+        """Verify lines formatted with timestamps (e.g. '9:00 AM - 12:30 PM: CS Fundamentals') cleanly extract task title."""
+        class TimestampLLM(LLMProvider):
+            def check_status(self):
+                return {"online": True, "provider": "timestamp_llm"}
+            def generate(self, messages, system_prompt=None, temperature=0.7, json_mode=False):
+                return """
+### Daily Plan
+- 9:00 AM - 10:30 AM: CS Fundamentals Review (Gate Prep)
+- 10:30 AM - 12:00 PM: Graph Theory Algorithms & Practice
+- 12:30 PM - 1:30 PM: Lunch Break & Relaxation
+"""
+        agent = DailyWorkAgent(llm=TimestampLLM())
+        result = agent.execute("Plan my morning", db=self.db)
+        self.assertEqual(result["status"], "success")
+        created = result["work_items_created"]
+        self.assertEqual(len(created), 3)
+        self.assertEqual(created[0]["title"], "CS Fundamentals Review (Gate Prep)")
+        self.assertEqual(created[1]["title"], "Graph Theory Algorithms & Practice")
+        self.assertEqual(created[2]["title"], "Lunch Break & Relaxation")
+
+        for item_info in reversed(created):
+            obj = self.db.query(WorkItem).filter(WorkItem.id == item_info["id"]).first()
+            if obj:
+                self.db.delete(obj)
+        self.db.commit()
+
 
 if __name__ == "__main__":
     unittest.main()

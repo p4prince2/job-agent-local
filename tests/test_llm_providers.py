@@ -48,6 +48,18 @@ class TestLLMProviders(unittest.TestCase):
         )
         self.assertIn("- Title:", daily_out)
 
+    def test_bare_string_prompt_support(self):
+        """Verify LLM providers accept bare strings without crashing."""
+        provider = MockProvider()
+        res = provider.generate("Write about multi-agent systems", system_prompt="ORIGINAL POST PIPELINE")
+        self.assertIn("1. LinkedIn Post", res)
+
+        from llm.ollama_provider import OllamaProvider
+        ollama = OllamaProvider(host="http://invalid-fake-host-99999", model="llama3.2")
+        # Ensure offline error is returned instead of 400 Bad Request or unhandled exception
+        out = ollama.generate("Test prompt string")
+        self.assertTrue(out.startswith("[Offline Error]") or out.startswith("[Ollama"))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -5,6 +5,7 @@ decomposes large goals into prioritized subtasks, and tracks in-app reminders.
 Never falsely claims an OS notification was set.
 """
 
+import re
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 from sqlalchemy.orm import Session
@@ -122,14 +123,30 @@ Please provide:
         items = []
         for line in response_text.split("\n"):
             clean = line.strip()
-            if (clean.startswith(("- Title:", "Title:", "- **Title:**", "**Title:**")) or
-                (clean.startswith(("-", "*", "1.", "2.", "3.", "4.")) and len(clean) > 15 and ":" in clean)):
+            title_part = ""
+            if any(clean.lower().startswith(p) for p in ["- title:", "title:", "- **title:**", "**title:**"]):
                 title_part = clean.split(":", 1)[1].strip().strip("*\"'")
-                if 10 < len(title_part) < 120 and title_part not in [it["title"] for it in items]:
-                    prio = "high" if "high" in line.lower() else "medium"
-                    items.append({"title": title_part, "tag": tag, "priority": prio})
-                    if len(items) >= 4:
-                        break
+            elif clean.startswith(("-", "*", "1.", "2.", "3.", "4.")) and len(clean) > 10:
+                stripped = re.sub(r"^(?:[-*]|\d+\.)\s*", "", clean).strip()
+                # Check for time ranges like "9:00 AM - 9:30 AM: Task description" or "09:00 - 10:30: Task"
+                time_match = re.match(
+                    r"^(?:\d{1,2}:\d{2}\s*(?:AM|PM|am|pm)?\s*[-–—]\s*\d{1,2}:\d{2}\s*(?:AM|PM|am|pm)?)\s*:?\s*(.*)$",
+                    stripped,
+                    re.IGNORECASE
+                )
+                if time_match and time_match.group(1).strip():
+                    title_part = time_match.group(1).strip().strip("*\"'")
+                elif ":" in stripped:
+                    parts = stripped.split(":", 1)
+                    title_part = parts[1].strip().strip("*\"'") if parts[1].strip() else stripped
+                else:
+                    title_part = stripped.strip("*\"'")
+
+            if title_part and 5 < len(title_part) < 120 and title_part not in [it["title"] for it in items]:
+                prio = "high" if "high" in line.lower() else "medium"
+                items.append({"title": title_part, "tag": tag, "priority": prio})
+                if len(items) >= 4:
+                    break
 
         if not items:
             items.append({"title": f"Execute: {user_request[:60]}", "tag": tag, "priority": "medium"})
