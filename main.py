@@ -398,15 +398,29 @@ def drafts_page(
         search_term = f"%{q.strip()}%"
         query = query.filter(Draft.content.ilike(search_term))
     drafts = query.order_by(Draft.created_at.desc()).all()
+    rejected_count = db.query(Draft).filter(Draft.status == "rejected").count()
 
     context = get_common_context(db, active_tab="drafts")
     context.update({
         "drafts": drafts,
         "selected_platform": platform or "all",
         "selected_status": status or "all",
-        "search_query": q or ""
+        "search_query": q or "",
+        "rejected_count": rejected_count
     })
     return templates.TemplateResponse(request=request, name="drafts.html", context=context)
+
+
+@app.post("/drafts/clear-rejected")
+def clear_rejected_drafts_endpoint(db: Session = Depends(get_db)):
+    """Permanently purges all rejected drafts from the database."""
+    rejected = db.query(Draft).filter(Draft.status == "rejected").all()
+    count = len(rejected)
+    for d in rejected:
+        db.delete(d)
+    db.commit()
+    logger.info(f"Cleared {count} rejected drafts")
+    return RedirectResponse(url="/drafts", status_code=303)
 
 
 @app.get("/drafts/export-all")
@@ -787,6 +801,23 @@ def toggle_work_item(request: Request, item_id: int, db: Session = Depends(get_d
                 due_chip = f'<span class="badge" style="font-size: 0.7rem; background: var(--bg); border: 1px solid var(--border); color: var(--text-main); margin-left: 0.4rem;">📅 Due: {item.due_date}</span>'
         else:
             due_chip = ""
+        snooze_chips = ""
+        if not is_done:
+            snooze_chips = f'''<span style="display: inline-flex; gap: 0.2rem; align-items: center; margin-left: 0.4rem;">
+                <span style="font-size: 0.68rem; color: var(--text-muted);">Snooze:</span>
+                <form action="/work/reschedule/{item.id}" method="POST" style="margin: 0; display: inline;">
+                  <input type="hidden" name="days" value="1">
+                  <button type="submit" class="btn btn-secondary" style="font-size: 0.65rem; padding: 0.05rem 0.3rem;" title="Reschedule +1 day">+1d</button>
+                </form>
+                <form action="/work/reschedule/{item.id}" method="POST" style="margin: 0; display: inline;">
+                  <input type="hidden" name="days" value="3">
+                  <button type="submit" class="btn btn-secondary" style="font-size: 0.65rem; padding: 0.05rem 0.3rem;" title="Reschedule +3 days">+3d</button>
+                </form>
+                <form action="/work/reschedule/{item.id}" method="POST" style="margin: 0; display: inline;">
+                  <input type="hidden" name="days" value="7">
+                  <button type="submit" class="btn btn-secondary" style="font-size: 0.65rem; padding: 0.05rem 0.3rem;" title="Reschedule +1 week">+1w</button>
+                </form>
+              </span>'''
         return HTMLResponse(f"""
         <div id="work-item-{item.id}" style="border: 1px solid var(--border); padding: 0.75rem; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; background: {bg_style}; {subtask_style}">
           <div style="display: flex; align-items: center; gap: 0.75rem;">
@@ -805,6 +836,7 @@ def toggle_work_item(request: Request, item_id: int, db: Session = Depends(get_d
               </span>
               <span style="font-size: 0.75rem; color: var(--text-muted); margin-left: 0.4rem;">Priority: {item.priority}</span>
               {due_chip}
+              {snooze_chips}
               {subtask_note}
             </div>
           </div>
@@ -833,6 +865,34 @@ def delete_work_item_endpoint(request: Request, item_id: int, db: Session = Depe
         db.commit()
     if request.headers.get("HX-Request"):
         return HTMLResponse("")
+    return RedirectResponse(url="/work", status_code=303)
+
+
+@app.post("/work/reschedule/{item_id}")
+def reschedule_work_item_endpoint(
+    item_id: int,
+    days: int = Form(1),
+    db: Session = Depends(get_db)
+):
+    """Reschedules an active work item by N days from today or its current due date."""
+    item = db.query(WorkItem).filter(WorkItem.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Work item not found")
+
+    base_date = datetime.now(timezone.utc).date()
+    if item.due_date:
+        try:
+            parsed = datetime.strptime(item.due_date, "%Y-%m-%d").date()
+            if parsed > base_date:
+                base_date = parsed
+        except Exception:
+            pass
+
+    new_due = (base_date + timedelta(days=days)).strftime("%Y-%m-%d")
+    item.due_date = new_due
+    db.commit()
+    db.refresh(item)
+    log_event("DailyWorkAgent", f"Rescheduled WorkItem #{item.id} to {new_due} (+{days}d)")
     return RedirectResponse(url="/work", status_code=303)
 
 
@@ -1078,6 +1138,55 @@ def export_github_review_endpoint(review_id: int, db: Session = Depends(get_db))
     body += f"- **Date:** {rev.created_at.strftime('%Y-%m-%d %H:%M:%S UTC')}\n\n"
     body += f"## Architectural & Code Quality Review\n\n{rev.human_summary}\n\n"
     body += f"## Raw Telemetry & Manifests\n\n```json\n{rev.summary_json}\n```\n"
+    return Response(
+        content=body,
+        media_type="text/markdown; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )
+
+
+@app.get("/github/export-all")
+def export_all_github_reviews_endpoint(
+    q: Optional[str] = None,
+    format: Optional[str] = "md",
+    db: Session = Depends(get_db)
+):
+    """Exports all matching GitHub repository reviews as Markdown digest or CSV spreadsheet."""
+    query = db.query(GitHubReview)
+    if q and q.strip():
+        search_term = f"%{q.strip()}%"
+        query = query.filter(GitHubReview.repo.ilike(search_term) | GitHubReview.human_summary.ilike(search_term))
+    reviews = query.order_by(GitHubReview.created_at.desc()).all()
+
+    if format and format.lower() == "csv":
+        import io, csv
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["id", "repo", "created_at", "summary"])
+        for r in reviews:
+            writer.writerow([r.id, r.repo, r.created_at.strftime('%Y-%m-%d %H:%M:%S'), r.human_summary])
+        filename = "github_reviews.csv"
+        return Response(
+            content=output.getvalue(),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+        )
+
+    filename = "github_reviews_digest.md"
+    body = f"# GitHub Repository Audits Digest\n\n"
+    body += f"- Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}\n"
+    if q and q.strip():
+        body += f"- Filter Query: {q.strip()}\n"
+    body += f"- Total Audits: {len(reviews)}\n\n---\n\n"
+
+    for r in reviews:
+        body += f"## Audit #{r.id}: {r.repo}\n\n"
+        body += f"- **Date:** {r.created_at.strftime('%Y-%m-%d %H:%M:%S UTC')}\n\n"
+        body += f"### Architectural & Code Quality Review\n\n{r.human_summary}\n\n"
+        if r.summary_json:
+            body += f"### Telemetry Manifest\n\n```json\n{r.summary_json}\n```\n\n"
+        body += "---\n\n"
+
     return Response(
         content=body,
         media_type="text/markdown; charset=utf-8",

@@ -54,9 +54,9 @@
         <label for="prompt" style="font-weight: 600; font-size: 0.9rem;">What would you like the team to do?</label>
         <textarea id="prompt" name="prompt" rows="4" placeholder="e.g. Paste an X/Twitter post URL (https://x.com/...), review a GitHub repo, or plan daily work goals." required></textarea>
         
-        <div style="margin-top: 1rem; display: flex; justify-content: space-between; align-items: center;">
+        <div style="margin-top: 1rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
           <div style="font-size: 0.8rem; color: var(--text-muted);">
-            Running on <strong>{{ (llm_provider_name or 'ollama')|title }} ({{ llm_model or 'llama3.2' }})</strong> &bull; Zero API Cost
+            Running on <strong>{{ (llm_provider_name or 'ollama')|title }} ({{ llm_model or 'llama3.2' }})</strong> &bull; Zero API Cost &bull; <kbd style="background: var(--surface-alt); border: 1px solid var(--border); border-radius: 3px; padding: 0.1rem 0.35rem; font-size: 0.72rem;">Ctrl+Enter</kbd> to submit
           </div>
           <div style="display: flex; align-items: center; gap: 0.5rem;">
             <span id="dispatch-spinner" class="htmx-indicator" style="font-size: 0.85rem; color: var(--primary);">Dispatching...</span>
@@ -132,6 +132,22 @@
             }
           });
         }
+
+        // Keyboard shortcut: Ctrl+Enter or Cmd+Enter to dispatch prompt
+        document.addEventListener("DOMContentLoaded", function() {
+          const promptArea = document.getElementById("prompt");
+          if (promptArea) {
+            promptArea.addEventListener("keydown", function(e) {
+              if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+                e.preventDefault();
+                const form = promptArea.closest("form");
+                if (form && promptArea.value.trim().length > 0) {
+                  form.requestSubmit();
+                }
+              }
+            });
+          }
+        });
       </script>
     </div>
   </div>

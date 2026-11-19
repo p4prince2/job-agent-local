@@ -39,12 +39,20 @@
       <a href="/drafts?platform={{ selected_platform }}&status={{ selected_status }}" class="btn btn-secondary" style="font-size: 0.8rem; height: 34px; padding: 0 0.75rem; text-decoration: none;">Clear</a>
       {% endif %}
     </form>
-    <div style="display: flex; gap: 0.35rem; align-items: center;">
+    <div style="display: flex; gap: 0.35rem; align-items: center; flex-wrap: wrap;">
       <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Status:</span>
       <a href="/drafts?status=all{% if selected_platform != 'all' %}&platform={{ selected_platform }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.2rem 0.5rem; {% if selected_status == 'all' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">All</a>
       <a href="/drafts?status=draft{% if selected_platform != 'all' %}&platform={{ selected_platform }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.2rem 0.5rem; {% if selected_status == 'draft' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">Drafts</a>
       <a href="/drafts?status=approved{% if selected_platform != 'all' %}&platform={{ selected_platform }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.2rem 0.5rem; {% if selected_status == 'approved' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">Approved</a>
       <a href="/drafts?status=posted_manually{% if selected_platform != 'all' %}&platform={{ selected_platform }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.2rem 0.5rem; {% if selected_status == 'posted_manually' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">Posted</a>
+      <a href="/drafts?status=rejected{% if selected_platform != 'all' %}&platform={{ selected_platform }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.2rem 0.5rem; {% if selected_status == 'rejected' %}background: #DC2626; color: white; border-color: #DC2626;{% endif %}">Rejected</a>
+      {% if rejected_count and rejected_count > 0 %}
+      <form action="/drafts/clear-rejected" method="POST" style="margin: 0; display: inline;" onsubmit="return confirm('Permanently delete all {{ rejected_count }} rejected drafts?');">
+        <button type="submit" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.2rem 0.5rem; color: #DC2626; border-color: #FCA5A5;" title="Permanently delete all rejected drafts">
+          🧹 Clear Rejected ({{ rejected_count }})
+        </button>
+      </form>
+      {% endif %}
     </div>
   </div>
 

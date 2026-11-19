@@ -150,6 +150,23 @@
                 </span>
                 {% endif %}
               {% endif %}
+              {% if item.status != 'done' %}
+              <span style="display: inline-flex; gap: 0.2rem; align-items: center; margin-left: 0.4rem;">
+                <span style="font-size: 0.68rem; color: var(--text-muted);">Snooze:</span>
+                <form action="/work/reschedule/{{ item.id }}" method="POST" style="margin: 0; display: inline;">
+                  <input type="hidden" name="days" value="1">
+                  <button type="submit" class="btn btn-secondary" style="font-size: 0.65rem; padding: 0.05rem 0.3rem;" title="Reschedule +1 day">+1d</button>
+                </form>
+                <form action="/work/reschedule/{{ item.id }}" method="POST" style="margin: 0; display: inline;">
+                  <input type="hidden" name="days" value="3">
+                  <button type="submit" class="btn btn-secondary" style="font-size: 0.65rem; padding: 0.05rem 0.3rem;" title="Reschedule +3 days">+3d</button>
+                </form>
+                <form action="/work/reschedule/{{ item.id }}" method="POST" style="margin: 0; display: inline;">
+                  <input type="hidden" name="days" value="7">
+                  <button type="submit" class="btn btn-secondary" style="font-size: 0.65rem; padding: 0.05rem 0.3rem;" title="Reschedule +1 week">+1w</button>
+                </form>
+              </span>
+              {% endif %}
               {% if item.parent_id %}
               <span style="font-size: 0.7rem; color: var(--primary); margin-left: 0.4rem;">[Subtask of #{{ item.parent_id }}]</span>
               {% else %}

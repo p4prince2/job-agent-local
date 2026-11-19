@@ -27,12 +27,18 @@
         <a href="/github" class="btn btn-secondary" style="font-size: 0.8rem; height: 32px; padding: 0 0.75rem; text-decoration: none; display: flex; align-items: center;">Reset</a>
         {% endif %}
       </form>
-      <div style="display: flex; align-items: center; gap: 0.75rem;">
-        <a href="/github/compare" class="btn btn-secondary" style="font-size: 0.8rem; height: 32px; text-decoration: none; display: flex; align-items: center; padding: 0 0.75rem;" title="Compare two repository audits side-by-side">
-          📊 Compare Audits
+      <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+        <a href="/github/compare" class="btn btn-secondary" style="font-size: 0.8rem; height: 32px; text-decoration: none; display: flex; align-items: center; padding: 0 0.6rem;" title="Compare two repository audits side-by-side">
+          📊 Compare
         </a>
-        <div style="font-size: 0.8rem; color: var(--text-muted);">
-          Total Audits: <strong>{{ reviews|length }}</strong>
+        <a href="/github/export-all?format=md{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.8rem; height: 32px; text-decoration: none; display: flex; align-items: center; padding: 0 0.6rem;" title="Export all repository audits as Markdown digest">
+          📥 Export .md
+        </a>
+        <a href="/github/export-all?format=csv{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.8rem; height: 32px; text-decoration: none; display: flex; align-items: center; padding: 0 0.6rem;" title="Export all repository audits as CSV spreadsheet">
+          📊 Export CSV
+        </a>
+        <div style="font-size: 0.8rem; color: var(--text-muted); margin-left: 0.25rem;">
+          Total: <strong>{{ reviews|length }}</strong>
         </div>
       </div>
     </div>

@@ -1292,6 +1292,88 @@ Architecture diagram with SQLite and local LLM icons.
         run = AgentRun(task_id=1, agent_name="GitHubAgent", input="Audit", started_at=t0, finished_at=t1)
         self.assertEqual(run.get_duration_seconds(), 4.3)
 
+    def test_github_export_all_md_and_csv(self):
+        import uuid
+        from db.session import SessionLocal
+        from db.models import GitHubReview
+
+        uid = uuid.uuid4().hex[:6]
+        repo_name = f"p4prince2/test-repo-{uid}"
+
+        db = SessionLocal()
+        rev = GitHubReview(
+            repo=repo_name,
+            human_summary=f"Audit summary for {repo_name}",
+            summary_json='{"status": "ok"}'
+        )
+        db.add(rev)
+        db.commit()
+        db.close()
+
+        # Test Markdown Export
+        resp_md = self.client.get(f"/github/export-all?q={uid}&format=md")
+        self.assertEqual(resp_md.status_code, 200)
+        self.assertEqual(resp_md.headers["content-type"], "text/markdown; charset=utf-8")
+        self.assertIn("# GitHub Repository Audits Digest", resp_md.text)
+        self.assertIn(repo_name, resp_md.text)
+
+        # Test CSV Export
+        resp_csv = self.client.get(f"/github/export-all?q={uid}&format=csv")
+        self.assertEqual(resp_csv.status_code, 200)
+        self.assertEqual(resp_csv.headers["content-type"], "text/csv; charset=utf-8")
+        self.assertIn("id,repo,created_at,summary", resp_csv.text)
+        self.assertIn(repo_name, resp_csv.text)
+
+    def test_drafts_clear_rejected_endpoint(self):
+        import uuid
+        from db.session import SessionLocal
+        from db.models import Draft
+
+        uid = uuid.uuid4().hex[:6]
+        db = SessionLocal()
+        d_rejected = Draft(platform="x", type="original", status="rejected", content=f"Bad draft {uid}")
+        d_active = Draft(platform="linkedin", type="original", status="draft", content=f"Good draft {uid}")
+        db.add_all([d_rejected, d_active])
+        db.commit()
+        db.close()
+
+        resp = self.client.post("/drafts/clear-rejected", follow_redirects=False)
+        self.assertEqual(resp.status_code, 303)
+
+        db = SessionLocal()
+        check_rej = db.query(Draft).filter(Draft.content.contains(f"Bad draft {uid}")).first()
+        check_act = db.query(Draft).filter(Draft.content.contains(f"Good draft {uid}")).first()
+        self.assertIsNone(check_rej)
+        self.assertIsNotNone(check_act)
+        db.close()
+
+    def test_work_reschedule_endpoint(self):
+        import uuid
+        from datetime import datetime, timezone, timedelta
+        from db.session import SessionLocal
+        from db.models import WorkItem
+
+        uid = uuid.uuid4().hex[:6]
+        yesterday_str = (datetime.now(timezone.utc) - timedelta(days=2)).strftime("%Y-%m-%d")
+
+        db = SessionLocal()
+        item = WorkItem(title=f"Reschedule Task {uid}", project_tag="ai_ml", due_date=yesterday_str, status="todo")
+        db.add(item)
+        db.commit()
+        db.refresh(item)
+        item_id = item.id
+        db.close()
+
+        # Reschedule by +3 days
+        resp = self.client.post(f"/work/reschedule/{item_id}", data={"days": 3}, follow_redirects=False)
+        self.assertEqual(resp.status_code, 303)
+
+        expected_due = (datetime.now(timezone.utc).date() + timedelta(days=3)).strftime("%Y-%m-%d")
+        db = SessionLocal()
+        updated_item = db.query(WorkItem).filter(WorkItem.id == item_id).first()
+        self.assertEqual(updated_item.due_date, expected_due)
+        db.close()
+
 
 if __name__ == "__main__":
     unittest.main()
