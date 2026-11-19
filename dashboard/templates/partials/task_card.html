@@ -8,6 +8,9 @@
   <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem;">
     <div>
       <span style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700;">Task #{{ task.id }}</span>
+      {% if task.get_duration_seconds() is not none %}
+      <span class="badge" style="font-size: 0.7rem; background: var(--bg); border: 1px solid var(--border); color: var(--text-main); margin-left: 0.35rem;">⏱️ {{ task.get_duration_seconds() }}s</span>
+      {% endif %}
       <h3 style="margin-top: 0.2rem;">{{ task.raw_input }}</h3>
     </div>
     <div>
@@ -45,8 +48,13 @@
   <div style="display: flex; flex-direction: column; gap: 0.75rem;">
     {% for run in task.agent_runs %}
     <div style="background: var(--surface-alt); border: 1px solid var(--border); padding: 0.75rem; border-radius: 6px;">
-      <div style="display: flex; justify-content: space-between;">
-        <strong>{{ run.agent_name }}</strong>
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <strong>{{ run.agent_name }}</strong>
+          {% if run.get_duration_seconds() is not none %}
+          <span style="font-size: 0.72rem; color: var(--text-muted); margin-left: 0.35rem;">({{ run.get_duration_seconds() }}s)</span>
+          {% endif %}
+        </div>
         <span class="badge {% if run.status == 'completed' %}badge-content{% elif run.status == 'failed' %}badge-automation{% else %}badge-daily{% endif %}">
           {{ run.status }}
         </span>

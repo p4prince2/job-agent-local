@@ -143,7 +143,23 @@
             📥 Download SQLite Backup (.db)
           </a>
         </div>
+
+        <div style="margin-top: 0.85rem; padding-top: 0.75rem; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+          <span style="font-size: 0.8rem; color: var(--text-muted);">End-to-End Health Verification:</span>
+          <form action="/settings/self-test" method="POST"
+                hx-post="/settings/self-test"
+                hx-target="#self-test-container"
+                hx-swap="outerHTML"
+                hx-indicator="#self-test-spinner"
+                style="margin: 0;">
+            <span id="self-test-spinner" class="htmx-indicator" style="font-size: 0.8rem; color: var(--primary); margin-right: 0.4rem;">Testing...</span>
+            <button type="submit" class="btn btn-secondary" style="font-size: 0.8rem; padding: 0.35rem 0.75rem;">
+              🧪 Run Health Self-Test
+            </button>
+          </form>
+        </div>
       </div>
+      <div id="self-test-container"></div>
       {% endif %}
     </div>
   </div>

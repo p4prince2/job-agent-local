@@ -602,6 +602,7 @@ def work_page(
     tag: Optional[str] = None,
     status: Optional[str] = None,
     priority: Optional[str] = None,
+    due: Optional[str] = None,
     q: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
@@ -612,11 +613,26 @@ def work_page(
         query = query.filter(WorkItem.status == status.lower())
     if priority and priority != "all":
         query = query.filter(WorkItem.priority == priority.lower())
+
+    today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    if due and due != "all":
+        if due == "overdue":
+            query = query.filter(WorkItem.status != "done", WorkItem.due_date != None, WorkItem.due_date < today_str)
+        elif due == "today":
+            query = query.filter(WorkItem.status != "done", WorkItem.due_date == today_str)
+        elif due == "upcoming":
+            query = query.filter(WorkItem.status != "done", WorkItem.due_date != None, WorkItem.due_date > today_str)
+
     if q and q.strip():
         search_term = f"%{q.strip()}%"
         query = query.filter(WorkItem.title.ilike(search_term))
     work_items = query.order_by(WorkItem.created_at.desc()).all()
     reminders = db.query(Reminder).order_by(Reminder.remind_at.asc()).all()
+
+    # Pre-calculate counts for overdue / today badges
+    all_active = db.query(WorkItem).filter(WorkItem.status != "done").all()
+    overdue_count = sum(1 for it in all_active if it.due_date and it.due_date < today_str)
+    today_count = sum(1 for it in all_active if it.due_date and it.due_date == today_str)
 
     context = get_common_context(db, active_tab="work")
     context.update({
@@ -625,7 +641,10 @@ def work_page(
         "selected_tag": tag or "all",
         "selected_status": status or "all",
         "selected_priority": priority or "all",
-        "search_query": q or ""
+        "selected_due": due or "all",
+        "search_query": q or "",
+        "overdue_count": overdue_count,
+        "today_count": today_count
     })
     return templates.TemplateResponse(request=request, name="work.html", context=context)
 
@@ -635,6 +654,7 @@ def export_work_items_endpoint(
     tag: Optional[str] = None,
     status: Optional[str] = None,
     priority: Optional[str] = None,
+    due: Optional[str] = None,
     format: Optional[str] = "md",
     db: Session = Depends(get_db)
 ):
@@ -645,6 +665,16 @@ def export_work_items_endpoint(
         query = query.filter(WorkItem.status == status.lower())
     if priority and priority != "all":
         query = query.filter(WorkItem.priority == priority.lower())
+
+    today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    if due and due != "all":
+        if due == "overdue":
+            query = query.filter(WorkItem.status != "done", WorkItem.due_date != None, WorkItem.due_date < today_str)
+        elif due == "today":
+            query = query.filter(WorkItem.status != "done", WorkItem.due_date == today_str)
+        elif due == "upcoming":
+            query = query.filter(WorkItem.status != "done", WorkItem.due_date != None, WorkItem.due_date > today_str)
+
     items = query.order_by(WorkItem.created_at.desc()).all()
 
     if format and format.lower() == "csv":
@@ -1355,6 +1385,135 @@ def backup_database_endpoint():
         filename=backup_filename,
         media_type="application/x-sqlite3"
     )
+
+
+@app.post("/settings/self-test", response_class=HTMLResponse)
+def run_system_self_test(request: Request, db: Session = Depends(get_db)):
+    """Executes non-destructive diagnostics across SQLite, LLM provider, log files, and safety gate."""
+    import time
+    results = []
+
+    # 1. Database latency test
+    try:
+        t0 = time.perf_counter()
+        count = db.query(Task).count()
+        db_ms = round((time.perf_counter() - t0) * 1000, 2)
+        results.append({
+            "subsystem": "SQLite Database",
+            "status": "PASS",
+            "latency": f"{db_ms} ms",
+            "detail": f"Queried {count} task record(s) successfully"
+        })
+    except Exception as e:
+        results.append({
+            "subsystem": "SQLite Database",
+            "status": "FAIL",
+            "latency": "N/A",
+            "detail": str(e)
+        })
+
+    # 2. Local LLM Provider check
+    try:
+        t0 = time.perf_counter()
+        status = default_provider.check_status()
+        llm_ms = round((time.perf_counter() - t0) * 1000, 2)
+        if status.get("online"):
+            results.append({
+                "subsystem": f"LLM Engine ({status.get('provider', 'ollama').upper()})",
+                "status": "PASS",
+                "latency": f"{llm_ms} ms",
+                "detail": f"Model: {status.get('model', 'llama3.2')} ({status.get('host', 'local')})"
+            })
+        else:
+            results.append({
+                "subsystem": f"LLM Engine ({status.get('provider', 'ollama').upper()})",
+                "status": "WARN",
+                "latency": f"{llm_ms} ms",
+                "detail": status.get("message", "Offline")
+            })
+    except Exception as e:
+        results.append({
+            "subsystem": "LLM Engine",
+            "status": "FAIL",
+            "latency": "N/A",
+            "detail": str(e)
+        })
+
+    # 3. Local file storage & logging I/O test
+    try:
+        test_file = BASE_DIR / "data" / ".health_check"
+        t0 = time.perf_counter()
+        test_file.write_text("health_ok", encoding="utf-8")
+        read_back = test_file.read_text(encoding="utf-8")
+        test_file.unlink(missing_ok=True)
+        io_ms = round((time.perf_counter() - t0) * 1000, 2)
+        results.append({
+            "subsystem": "Storage & I/O",
+            "status": "PASS",
+            "latency": f"{io_ms} ms",
+            "detail": "Data directory is read/write accessible"
+        })
+    except Exception as e:
+        results.append({
+            "subsystem": "Storage & I/O",
+            "status": "FAIL",
+            "latency": "N/A",
+            "detail": str(e)
+        })
+
+    # 4. Human Approval Safety Gate integrity
+    try:
+        t0 = time.perf_counter()
+        pending = ApprovalManager.get_pending_approvals(db=db)
+        safety_ms = round((time.perf_counter() - t0) * 1000, 2)
+        results.append({
+            "subsystem": "Safety Gate (§11)",
+            "status": "PASS",
+            "latency": f"{safety_ms} ms",
+            "detail": f"{len(pending)} pending approval(s) in queue"
+        })
+    except Exception as e:
+        results.append({
+            "subsystem": "Safety Gate (§11)",
+            "status": "FAIL",
+            "latency": "N/A",
+            "detail": str(e)
+        })
+
+    rows = ""
+    for r in results:
+        badge_cls = "badge-content" if r["status"] == "PASS" else ("badge-daily" if r["status"] == "WARN" else "badge-automation")
+        icon = "🟢" if r["status"] == "PASS" else ("🟡" if r["status"] == "WARN" else "🔴")
+        rows += f"""
+        <tr>
+            <td style="font-weight: 600;">{r['subsystem']}</td>
+            <td><span class="badge {badge_cls}">{icon} {r['status']}</span></td>
+            <td><code>{r['latency']}</code></td>
+            <td style="color: var(--text-muted); font-size: 0.85rem;">{r['detail']}</td>
+        </tr>
+        """
+
+    return HTMLResponse(f"""
+    <div id="self-test-container" style="margin-top: 1rem; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+            <strong>🧪 System Diagnostics Report</strong>
+            <span style="font-size: 0.8rem; color: var(--text-muted);">{datetime.now(timezone.utc).strftime('%H:%M:%S UTC')}</span>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Subsystem</th>
+                    <th>Status</th>
+                    <th>Latency</th>
+                    <th>Details</th>
+                </tr>
+            </thead>
+            <tbody>
+                {rows}
+            </tbody>
+        </table>
+    </div>
+    """)
 
 
 if __name__ == "__main__":

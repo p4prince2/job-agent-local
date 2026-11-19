@@ -22,6 +22,36 @@
       document.documentElement.setAttribute('data-theme', next);
       localStorage.setItem('theme', next);
     }
+
+    function initPreCopyButtons() {
+      document.querySelectorAll("pre").forEach(function(pre) {
+        if (pre.getAttribute("data-copy-init") === "true" || pre.closest(".no-copy")) return;
+        pre.setAttribute("data-copy-init", "true");
+        pre.style.position = "relative";
+        const copyBtn = document.createElement("button");
+        copyBtn.type = "button";
+        copyBtn.className = "btn btn-secondary";
+        copyBtn.innerText = "📋 Copy";
+        copyBtn.style.position = "absolute";
+        copyBtn.style.top = "6px";
+        copyBtn.style.right = "6px";
+        copyBtn.style.fontSize = "0.7rem";
+        copyBtn.style.padding = "0.15rem 0.4rem";
+        copyBtn.style.opacity = "0.85";
+        copyBtn.onclick = function(e) {
+          e.stopPropagation();
+          const clone = pre.cloneNode(true);
+          const btnInClone = clone.querySelector("button");
+          if (btnInClone) btnInClone.remove();
+          navigator.clipboard.writeText(clone.innerText.trim());
+          copyBtn.innerText = "✅ Copied!";
+          setTimeout(() => { copyBtn.innerText = "📋 Copy"; }, 1500);
+        };
+        pre.appendChild(copyBtn);
+      });
+    }
+    document.addEventListener("DOMContentLoaded", initPreCopyButtons);
+    document.addEventListener("htmx:afterSwap", initPreCopyButtons);
   </script>
 </head>
 <body>

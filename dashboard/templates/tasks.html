@@ -80,7 +80,12 @@
               {% for run in t.agent_runs %}
               <div style="background: var(--surface); border: 1px solid var(--border); padding: 0.4rem 0.6rem; border-radius: 4px; font-size: 0.8rem;">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
-                  <strong>{{ run.agent_name }}</strong>
+                  <div>
+                    <strong>{{ run.agent_name }}</strong>
+                    {% if run.get_duration_seconds() is not none %}
+                    <span style="font-size: 0.7rem; color: var(--text-muted); margin-left: 0.3rem;">({{ run.get_duration_seconds() }}s)</span>
+                    {% endif %}
+                  </div>
                   <span class="badge {% if run.status == 'completed' %}badge-content{% elif run.status == 'failed' %}badge-automation{% else %}badge-daily{% endif %}" style="font-size: 0.7rem; padding: 0.1rem 0.35rem;">
                     {{ run.status }}
                   </span>
@@ -111,6 +116,9 @@
         </td>
         <td style="vertical-align: top; color: var(--text-muted); font-size: 0.85rem; white-space: nowrap;">
           {{ t.created_at.strftime('%Y-%m-%d %H:%M') }}
+          {% if t.get_duration_seconds() is not none %}
+          <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.2rem;">⏱️ {{ t.get_duration_seconds() }}s</div>
+          {% endif %}
         </td>
         <td style="vertical-align: top; text-align: right;">
           <div style="display: flex; gap: 0.35rem; justify-content: flex-end; align-items: center;">

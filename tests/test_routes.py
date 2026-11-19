@@ -1229,6 +1229,69 @@ Architecture diagram with SQLite and local LLM icons.
         self.assertEqual(i3.priority, "low")
         db.close()
 
+    def test_settings_self_test_endpoint(self):
+        resp = self.client.post("/settings/self-test")
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("System Diagnostics Report", resp.text)
+        self.assertIn("SQLite Database", resp.text)
+        self.assertIn("LLM Engine", resp.text)
+        self.assertIn("Storage & I/O", resp.text)
+        self.assertIn("Safety Gate", resp.text)
+
+    def test_work_due_filter_overdue_today_upcoming(self):
+        import uuid
+        from datetime import datetime, timezone, timedelta
+        from db.session import SessionLocal
+        from db.models import WorkItem
+
+        uid = uuid.uuid4().hex[:6]
+        now = datetime.now(timezone.utc)
+        yesterday_str = (now - timedelta(days=1)).strftime("%Y-%m-%d")
+        today_str = now.strftime("%Y-%m-%d")
+        tomorrow_str = (now + timedelta(days=1)).strftime("%Y-%m-%d")
+
+        db = SessionLocal()
+        w_overdue = WorkItem(title=f"Overdue Task {uid}", project_tag="ai_ml", due_date=yesterday_str, status="todo")
+        w_today = WorkItem(title=f"Today Task {uid}", project_tag="ai_ml", due_date=today_str, status="todo")
+        w_upcoming = WorkItem(title=f"Upcoming Task {uid}", project_tag="ai_ml", due_date=tomorrow_str, status="todo")
+        db.add_all([w_overdue, w_today, w_upcoming])
+        db.commit()
+        db.close()
+
+        # Query overdue
+        r_overdue = self.client.get(f"/work?q={uid}&due=overdue")
+        self.assertEqual(r_overdue.status_code, 200)
+        self.assertIn(f"Overdue Task {uid}", r_overdue.text)
+        self.assertNotIn(f"Upcoming Task {uid}", r_overdue.text)
+
+        # Query today
+        r_today = self.client.get(f"/work?q={uid}&due=today")
+        self.assertEqual(r_today.status_code, 200)
+        self.assertIn(f"Today Task {uid}", r_today.text)
+        self.assertNotIn(f"Overdue Task {uid}", r_today.text)
+
+        # Query upcoming
+        r_upcoming = self.client.get(f"/work?q={uid}&due=upcoming")
+        self.assertEqual(r_upcoming.status_code, 200)
+        self.assertIn(f"Upcoming Task {uid}", r_upcoming.text)
+        self.assertNotIn(f"Overdue Task {uid}", r_upcoming.text)
+
+    def test_task_and_agent_run_duration_methods(self):
+        from datetime import datetime, timezone, timedelta
+        from db.models import Task, AgentRun
+
+        t0 = datetime.now(timezone.utc)
+        t1 = t0 + timedelta(seconds=4.32)
+
+        task = Task(raw_input="Sample task", created_at=t0, completed_at=t1)
+        self.assertEqual(task.get_duration_seconds(), 4.3)
+
+        task_incomplete = Task(raw_input="Pending task", created_at=t0, completed_at=None)
+        self.assertIsNone(task_incomplete.get_duration_seconds())
+
+        run = AgentRun(task_id=1, agent_name="GitHubAgent", input="Audit", started_at=t0, finished_at=t1)
+        self.assertEqual(run.get_duration_seconds(), 4.3)
+
 
 if __name__ == "__main__":
     unittest.main()

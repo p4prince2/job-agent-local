@@ -39,6 +39,13 @@ class Task(Base):
     def set_routed_agents(self, agents: List[str]) -> None:
         self.routed_agents = json.dumps(agents)
 
+    def get_duration_seconds(self) -> Optional[float]:
+        """Calculates total execution turnaround time in seconds."""
+        if self.created_at and self.completed_at:
+            delta = (self.completed_at - self.created_at).total_seconds()
+            return round(max(0.0, delta), 1)
+        return None
+
 
 class AgentRun(Base):
     """Audit trail of one invocation per agent."""
@@ -54,6 +61,13 @@ class AgentRun(Base):
     finished_at = Column(DateTime, nullable=True)
 
     task = relationship("Task", back_populates="agent_runs")
+
+    def get_duration_seconds(self) -> Optional[float]:
+        """Calculates agent run duration in seconds."""
+        if self.started_at and self.finished_at:
+            delta = (self.finished_at - self.started_at).total_seconds()
+            return round(max(0.0, delta), 1)
+        return None
 
 
 class Draft(Base):
