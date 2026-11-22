@@ -34,6 +34,9 @@
       <a href="/logs/export?agent={{ selected_agent }}&level={{ selected_level }}{% if search_query %}&q={{ search_query }}{% endif %}&format=csv" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.2rem 0.6rem; text-decoration: none;" title="Download logs as CSV spreadsheet">
         📊 Export .csv
       </a>
+      <a href="/logs/export?agent={{ selected_agent }}&level={{ selected_level }}{% if search_query %}&q={{ search_query }}{% endif %}&format=json" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.2rem 0.6rem; text-decoration: none;" title="Download logs as JSON payload">
+        📦 Export .json
+      </a>
       <form action="/logs/clear" method="POST" style="margin: 0;" onsubmit="return confirm('Clear all activity logs?');">
         <button type="submit" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.2rem 0.5rem; color: #DC2626;" title="Wipe log database records">
           🧹 Clear Logs

@@ -1374,6 +1374,98 @@ Architecture diagram with SQLite and local LLM icons.
         self.assertEqual(updated_item.due_date, expected_due)
         db.close()
 
+    def test_draft_get_metrics(self):
+        from db.models import Draft
+
+        # Short X post
+        d_x = Draft(platform="x", type="original", status="draft", content="Building local multi-agent AI systems with Ollama!")
+        m_x = d_x.get_metrics()
+        self.assertTrue(m_x["is_x_compliant"])
+        self.assertGreater(m_x["x_remaining"], 0)
+        self.assertEqual(m_x["word_count"], 7)
+        self.assertEqual(m_x["char_count"], len(d_x.content))
+
+        # Long post exceeding X limit
+        long_text = "Word " * 65  # 325 chars
+        d_x_long = Draft(platform="x", type="original", status="draft", content=long_text)
+        m_x_long = d_x_long.get_metrics()
+        self.assertFalse(m_x_long["is_x_compliant"])
+        self.assertLess(m_x_long["x_remaining"], 0)
+
+        # Medium post reading time
+        article = " ".join(["algorithm"] * 450)
+        d_med = Draft(platform="medium", type="original", status="draft", content=article)
+        m_med = d_med.get_metrics()
+        self.assertEqual(m_med["word_count"], 450)
+        self.assertEqual(m_med["reading_time_mins"], 2)
+
+    def test_json_exports_all_endpoints(self):
+        import json
+
+        # 1. Tasks JSON export
+        resp_tasks = self.client.get("/tasks/export-all?format=json")
+        self.assertEqual(resp_tasks.status_code, 200)
+        self.assertIn("application/json", resp_tasks.headers["content-type"])
+        data_tasks = json.loads(resp_tasks.text)
+        self.assertIsInstance(data_tasks, list)
+
+        # 2. Drafts JSON export
+        resp_drafts = self.client.get("/drafts/export-all?format=json")
+        self.assertEqual(resp_drafts.status_code, 200)
+        self.assertIn("application/json", resp_drafts.headers["content-type"])
+        data_drafts = json.loads(resp_drafts.text)
+        self.assertIsInstance(data_drafts, list)
+        if len(data_drafts) > 0:
+            self.assertIn("metrics", data_drafts[0])
+
+        # 3. Work Items JSON export
+        resp_work = self.client.get("/work/export?format=json")
+        self.assertEqual(resp_work.status_code, 200)
+        self.assertIn("application/json", resp_work.headers["content-type"])
+        data_work = json.loads(resp_work.text)
+        self.assertIsInstance(data_work, list)
+        if len(data_work) > 0:
+            self.assertIn("subtask_progress", data_work[0])
+
+        # 4. GitHub Reviews JSON export
+        resp_gh = self.client.get("/github/export-all?format=json")
+        self.assertEqual(resp_gh.status_code, 200)
+        self.assertIn("application/json", resp_gh.headers["content-type"])
+        data_gh = json.loads(resp_gh.text)
+        self.assertIsInstance(data_gh, list)
+
+        # 5. Logs JSON export
+        resp_logs = self.client.get("/logs/export?format=json")
+        self.assertEqual(resp_logs.status_code, 200)
+        self.assertIn("application/json", resp_logs.headers["content-type"])
+        data_logs = json.loads(resp_logs.text)
+        self.assertIsInstance(data_logs, list)
+
+    def test_work_priority_cycle_htmx(self):
+        import uuid
+        from db.session import SessionLocal
+        from db.models import WorkItem
+
+        uid = uuid.uuid4().hex[:6]
+        db = SessionLocal()
+        item = WorkItem(title=f"HTMX Priority Task {uid}", project_tag="ai_ml", priority="low", status="todo")
+        db.add(item)
+        db.commit()
+        db.refresh(item)
+        item_id = item.id
+        db.close()
+
+        # Call with HX-Request header
+        resp = self.client.post(f"/work/priority/cycle/{item_id}", headers={"HX-Request": "true"})
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("medium", resp.text.lower())
+        self.assertIn(f"priority-form-{item_id}", resp.text)
+
+    def test_work_page_progress_stats(self):
+        resp = self.client.get("/work")
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("Overall Completion Progress", resp.text)
+
 
 if __name__ == "__main__":
     unittest.main()

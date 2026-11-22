@@ -82,6 +82,23 @@ class Draft(Base):
     source_ref = Column(String(255), nullable=True)  # e.g. a github_review id or URL
     created_at = Column(DateTime, nullable=False, default=utc_now)
 
+    def get_metrics(self) -> Dict[str, Any]:
+        """Calculates character count, word count, estimated reading time, and platform constraints."""
+        text = self.content or ""
+        char_count = len(text)
+        words = text.split()
+        word_count = len(words)
+        reading_time_mins = max(1, round(word_count / 200)) if word_count > 0 else 1
+        is_x_compliant = (char_count <= 280) if self.platform == "x" else True
+
+        return {
+            "char_count": char_count,
+            "word_count": word_count,
+            "reading_time_mins": reading_time_mins,
+            "is_x_compliant": is_x_compliant,
+            "x_remaining": (280 - char_count) if self.platform == "x" else None
+        }
+
 
 class GitHubReview(Base):
     """GitHub Agent's structured reports."""

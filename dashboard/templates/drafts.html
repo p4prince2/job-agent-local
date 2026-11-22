@@ -18,6 +18,9 @@
       <a href="/drafts/export-all?platform={{ selected_platform }}&status={{ selected_status }}&format=csv" class="btn btn-secondary" style="font-size: 0.85rem; text-decoration: none;" title="Export all matching drafts as CSV spreadsheet">
         📊 Export CSV
       </a>
+      <a href="/drafts/export-all?platform={{ selected_platform }}&status={{ selected_status }}&format=json" class="btn btn-secondary" style="font-size: 0.85rem; text-decoration: none;" title="Export all matching drafts as JSON payload">
+        📦 Export JSON
+      </a>
       <div style="display: flex; gap: 0.35rem; flex-wrap: wrap;">
         <a href="/drafts?platform=all{% if selected_status != 'all' %}&status={{ selected_status }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.8rem; {% if selected_platform == 'all' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">All</a>
         <a href="/drafts?platform=linkedin{% if selected_status != 'all' %}&status={{ selected_status }}{% endif %}{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.8rem; {% if selected_platform == 'linkedin' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">LinkedIn</a>

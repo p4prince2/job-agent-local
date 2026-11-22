@@ -16,6 +16,9 @@
       <a href="/tasks/export-all?status={{ selected_status }}{% if search_query %}&q={{ search_query }}{% endif %}&format=csv" class="btn btn-secondary" style="font-size: 0.8rem; text-decoration: none;" title="Download full task history as CSV spreadsheet">
         📊 Export All .csv
       </a>
+      <a href="/tasks/export-all?status={{ selected_status }}{% if search_query %}&q={{ search_query }}{% endif %}&format=json" class="btn btn-secondary" style="font-size: 0.8rem; text-decoration: none;" title="Download full task history as JSON payload">
+        📦 Export JSON
+      </a>
       <div style="display: flex; gap: 0.35rem; flex-wrap: wrap;">
         <a href="/tasks?status=all{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.8rem; {% if selected_status == 'all' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">All</a>
         <a href="/tasks?status=completed{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.8rem; {% if selected_status == 'completed' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">Completed</a>

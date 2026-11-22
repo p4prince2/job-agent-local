@@ -5,6 +5,7 @@ Supports asynchronous background agent runs with HTMX live polling,
 in-process APScheduler reminders, and safety approval management.
 """
 
+import json
 from typing import Optional
 from datetime import datetime, timedelta, timezone
 from fastapi import FastAPI, Request, Form, Depends, HTTPException, BackgroundTasks
@@ -317,6 +318,24 @@ def export_all_tasks_endpoint(
         query = query.filter(Task.raw_input.ilike(search_term) | Task.executive_summary.ilike(search_term))
     tasks = query.order_by(Task.created_at.desc()).all()
 
+    if format and format.lower() == "json":
+        data = [{
+            "id": t.id,
+            "raw_input": t.raw_input,
+            "status": t.status,
+            "routed_agents": t.get_routed_agents(),
+            "executive_summary": t.executive_summary,
+            "created_at": t.created_at.isoformat(),
+            "completed_at": t.completed_at.isoformat() if t.completed_at else None,
+            "duration_seconds": t.get_duration_seconds()
+        } for t in tasks]
+        filename = f"tasks_history_{status or 'all'}.json"
+        return Response(
+            content=json.dumps(data, indent=2),
+            media_type="application/json; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+        )
+
     if format and format.lower() == "csv":
         import io, csv
         output = io.StringIO()
@@ -436,6 +455,24 @@ def export_all_drafts_endpoint(
     if status and status != "all":
         query = query.filter(Draft.status == status.lower())
     drafts = query.order_by(Draft.created_at.desc()).all()
+
+    if format and format.lower() == "json":
+        data = [{
+            "id": d.id,
+            "platform": d.platform,
+            "type": d.type,
+            "status": d.status,
+            "source_ref": d.source_ref,
+            "content": d.content,
+            "metrics": d.get_metrics(),
+            "created_at": d.created_at.isoformat()
+        } for d in drafts]
+        filename = f"drafts_{platform or 'all'}.json"
+        return Response(
+            content=json.dumps(data, indent=2),
+            media_type="application/json; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+        )
 
     if format and format.lower() == "csv":
         import io, csv
@@ -643,10 +680,15 @@ def work_page(
     work_items = query.order_by(WorkItem.created_at.desc()).all()
     reminders = db.query(Reminder).order_by(Reminder.remind_at.asc()).all()
 
-    # Pre-calculate counts for overdue / today badges
+    # Pre-calculate counts for overdue / today badges and overall progress
     all_active = db.query(WorkItem).filter(WorkItem.status != "done").all()
     overdue_count = sum(1 for it in all_active if it.due_date and it.due_date < today_str)
     today_count = sum(1 for it in all_active if it.due_date and it.due_date == today_str)
+
+    all_items = db.query(WorkItem).all()
+    total_work_count = len(all_items)
+    completed_work_count = sum(1 for it in all_items if it.status == "done")
+    work_progress_percent = int((completed_work_count / total_work_count) * 100) if total_work_count > 0 else 0
 
     context = get_common_context(db, active_tab="work")
     context.update({
@@ -658,7 +700,10 @@ def work_page(
         "selected_due": due or "all",
         "search_query": q or "",
         "overdue_count": overdue_count,
-        "today_count": today_count
+        "today_count": today_count,
+        "total_work_count": total_work_count,
+        "completed_work_count": completed_work_count,
+        "work_progress_percent": work_progress_percent
     })
     return templates.TemplateResponse(request=request, name="work.html", context=context)
 
@@ -690,6 +735,26 @@ def export_work_items_endpoint(
             query = query.filter(WorkItem.status != "done", WorkItem.due_date != None, WorkItem.due_date > today_str)
 
     items = query.order_by(WorkItem.created_at.desc()).all()
+
+    if format and format.lower() == "json":
+        data = [{
+            "id": it.id,
+            "title": it.title,
+            "project_tag": it.project_tag,
+            "priority": it.priority,
+            "status": it.status,
+            "due_date": it.due_date,
+            "parent_id": it.parent_id,
+            "subtask_progress": it.get_subtask_progress(),
+            "created_at": it.created_at.isoformat(),
+            "completed_at": it.completed_at.isoformat() if it.completed_at else None
+        } for it in items]
+        filename = f"work_items_{tag or 'all'}.json"
+        return Response(
+            content=json.dumps(data, indent=2),
+            media_type="application/json; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+        )
 
     if format and format.lower() == "csv":
         import io, csv
@@ -933,6 +998,7 @@ def add_subtask_endpoint(
 
 @app.post("/work/priority/cycle/{item_id}")
 def cycle_work_item_priority(
+    request: Request,
     item_id: int,
     db: Session = Depends(get_db)
 ):
@@ -946,6 +1012,18 @@ def cycle_work_item_priority(
     db.commit()
     db.refresh(item)
     log_event("DailyWorkAgent", f"Updated priority for WorkItem #{item.id}: {old_pri} -> {item.priority}")
+    if request.headers.get("HX-Request"):
+        pri_color = "#DC2626" if item.priority == "high" else ("#D97706" if item.priority == "medium" else "#2563EB")
+        return HTMLResponse(f"""
+        <form id="priority-form-{item.id}" action="/work/priority/cycle/{item.id}" method="POST"
+              hx-post="/work/priority/cycle/{item.id}"
+              hx-target="#priority-form-{item.id}"
+              hx-swap="outerHTML" style="margin: 0; display: inline;">
+          <button type="submit" class="btn btn-secondary" style="font-size: 0.7rem; padding: 0.08rem 0.35rem; margin-left: 0.4rem; text-transform: uppercase; color: {pri_color}; font-weight: 600;" title="Click to cycle priority (low -> medium -> high)">
+            ⚡ {item.priority}
+          </button>
+        </form>
+        """)
     return RedirectResponse(url="/work", status_code=303)
 
 
@@ -1158,6 +1236,21 @@ def export_all_github_reviews_endpoint(
         query = query.filter(GitHubReview.repo.ilike(search_term) | GitHubReview.human_summary.ilike(search_term))
     reviews = query.order_by(GitHubReview.created_at.desc()).all()
 
+    if format and format.lower() == "json":
+        data = [{
+            "id": r.id,
+            "repo": r.repo,
+            "summary_dict": r.get_summary_dict(),
+            "human_summary": r.human_summary,
+            "created_at": r.created_at.isoformat()
+        } for r in reviews]
+        filename = "github_reviews.json"
+        return Response(
+            content=json.dumps(data, indent=2),
+            media_type="application/json; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+        )
+
     if format and format.lower() == "csv":
         import io, csv
         output = io.StringIO()
@@ -1257,6 +1350,24 @@ def export_approvals_endpoint(
         search_term = f"%{q.strip()}%"
         query = query.filter(Approval.description.ilike(search_term) | Approval.requested_by_agent.ilike(search_term))
     approvals = query.order_by(Approval.created_at.desc()).all()
+
+    if format and format.lower() == "json":
+        data = [{
+            "id": a.id,
+            "action_type": a.action_type,
+            "requested_by_agent": a.requested_by_agent,
+            "description": a.description,
+            "status": a.status,
+            "payload": a.get_payload(),
+            "created_at": a.created_at.isoformat(),
+            "resolved_at": a.resolved_at.isoformat() if a.resolved_at else None
+        } for a in approvals]
+        filename = f"approvals_{status or 'all'}.json"
+        return Response(
+            content=json.dumps(data, indent=2),
+            media_type="application/json; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+        )
 
     if format and format.lower() == "csv":
         import io, csv
@@ -1382,6 +1493,21 @@ def export_logs_endpoint(
     if q and q.strip():
         query = query.filter(Log.message.ilike(f"%{q.strip()}%"))
     logs = query.order_by(Log.created_at.desc()).limit(1000).all()
+
+    if format and format.lower() == "json":
+        data = [{
+            "id": l.id,
+            "created_at": l.created_at.isoformat(),
+            "level": l.level,
+            "agent_name": l.agent_name,
+            "message": l.message
+        } for l in logs]
+        filename = f"agent_logs_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.json"
+        return Response(
+            content=json.dumps(data, indent=2),
+            media_type="application/json; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+        )
 
     if format and format.lower() == "csv":
         import io, csv

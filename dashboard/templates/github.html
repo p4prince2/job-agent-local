@@ -37,6 +37,9 @@
         <a href="/github/export-all?format=csv{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.8rem; height: 32px; text-decoration: none; display: flex; align-items: center; padding: 0 0.6rem;" title="Export all repository audits as CSV spreadsheet">
           📊 Export CSV
         </a>
+        <a href="/github/export-all?format=json{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.8rem; height: 32px; text-decoration: none; display: flex; align-items: center; padding: 0 0.6rem;" title="Export all repository audits as JSON payload">
+          📦 Export JSON
+        </a>
         <div style="font-size: 0.8rem; color: var(--text-muted); margin-left: 0.25rem;">
           Total: <strong>{{ reviews|length }}</strong>
         </div>

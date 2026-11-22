@@ -11,6 +11,18 @@
         <span style="font-size: 0.85rem; color: var(--text-muted);">Tasks & Subtasks</span>
       </div>
 
+      {% if total_work_count and total_work_count > 0 %}
+      <div style="background: var(--surface-alt); border: 1px solid var(--border); border-radius: 6px; padding: 0.6rem 0.85rem; margin-bottom: 1rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem; font-size: 0.8rem;">
+          <span style="font-weight: 600; color: var(--text-main);">🎯 Overall Completion Progress</span>
+          <span style="color: var(--text-muted); font-size: 0.75rem;"><strong>{{ completed_work_count }}</strong> / {{ total_work_count }} tasks ({{ work_progress_percent }}%)</span>
+        </div>
+        <div style="width: 100%; height: 7px; background: var(--border); border-radius: 4px; overflow: hidden;">
+          <div style="width: {{ work_progress_percent }}%; height: 100%; background: linear-gradient(90deg, #10B981, #059669); border-radius: 4px; transition: width 0.3s ease;"></div>
+        </div>
+      </div>
+      {% endif %}
+
       <!-- Quick Task Creation Form -->
       <form action="/work/create" method="POST" style="margin-bottom: 1.25rem; background: var(--surface-alt); padding: 1rem; border-radius: 6px; border: 1px solid var(--border);">
         <div style="font-weight: 600; font-size: 0.85rem; margin-bottom: 0.5rem;">➕ Add New Task</div>
@@ -56,6 +68,9 @@
             </a>
             <a href="/work/export?tag={{ selected_tag }}&status={{ selected_status }}&priority={{ selected_priority }}&due={{ selected_due }}&format=csv" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.6rem; text-decoration: none;" title="Download tasks as CSV spreadsheet">
               📊 Export .csv
+            </a>
+            <a href="/work/export?tag={{ selected_tag }}&status={{ selected_status }}&priority={{ selected_priority }}&due={{ selected_due }}&format=json" class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.25rem 0.6rem; text-decoration: none;" title="Download tasks as JSON payload">
+              📦 Export .json
             </a>
             <form action="/work/complete-all" method="POST" style="margin: 0;" onsubmit="return confirm('Mark all {{ selected_tag }} tasks as completed?');">
               <input type="hidden" name="tag" value="{{ selected_tag }}">
@@ -130,8 +145,11 @@
               <span class="badge {% if item.project_tag == 'gate_prep' %}badge-daily{% elif item.project_tag == 'ai_ml' %}badge-content{% elif item.project_tag == 'github' %}badge-github{% else %}badge-supervisor{% endif %}" style="font-size: 0.7rem; padding: 0.1rem 0.4rem;">
                 {{ item.project_tag }}
               </span>
-              <form action="/work/priority/cycle/{{ item.id }}" method="POST" style="margin: 0; display: inline;">
-                <button type="submit" class="btn btn-secondary" style="font-size: 0.7rem; padding: 0.08rem 0.35rem; margin-left: 0.4rem; text-transform: uppercase;" title="Click to cycle priority (low -> medium -> high)">
+              <form id="priority-form-{{ item.id }}" action="/work/priority/cycle/{{ item.id }}" method="POST"
+                    hx-post="/work/priority/cycle/{{ item.id }}"
+                    hx-target="#priority-form-{{ item.id }}"
+                    hx-swap="outerHTML" style="margin: 0; display: inline;">
+                <button type="submit" class="btn btn-secondary" style="font-size: 0.7rem; padding: 0.08rem 0.35rem; margin-left: 0.4rem; text-transform: uppercase; {% if item.priority == 'high' %}color: #DC2626; font-weight: 600;{% elif item.priority == 'medium' %}color: #D97706; font-weight: 600;{% else %}color: #2563EB; font-weight: 600;{% endif %}" title="Click to cycle priority (low -> medium -> high)">
                   ⚡ {{ item.priority }}
                 </button>
               </form>
