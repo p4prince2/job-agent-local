@@ -961,6 +961,35 @@ def reschedule_work_item_endpoint(
     return RedirectResponse(url="/work", status_code=303)
 
 
+@app.post("/work/edit/{item_id}")
+def edit_work_item_endpoint(
+    item_id: int,
+    title: str = Form(...),
+    project_tag: str = Form("general"),
+    priority: str = Form("medium"),
+    due_date: Optional[str] = Form(None),
+    db: Session = Depends(get_db)
+):
+    """Updates title, category tag, priority, and due date of an existing work item."""
+    item = db.query(WorkItem).filter(WorkItem.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Work item not found")
+
+    clean_title = title.strip()
+    if not clean_title:
+        raise HTTPException(status_code=400, detail="Title cannot be empty")
+
+    item.title = clean_title
+    item.project_tag = project_tag.strip().lower()
+    item.priority = priority.strip().lower() if priority.strip().lower() in ["high", "medium", "low"] else "medium"
+    item.due_date = due_date.strip() if due_date and due_date.strip() else None
+
+    db.commit()
+    db.refresh(item)
+    log_event("DailyWorkAgent", f"Updated WorkItem #{item.id}: '{item.title}' [{item.project_tag}]")
+    return RedirectResponse(url="/work", status_code=303)
+
+
 @app.post("/work/subtasks/add/{parent_id}")
 def add_subtask_endpoint(
     parent_id: int,
@@ -1322,15 +1351,30 @@ def approvals_page(
         pending_query = pending_query.filter(Approval.description.ilike(search_term) | Approval.requested_by_agent.ilike(search_term))
     all_apps = query.order_by(Approval.created_at.desc()).limit(100).all()
     pending = pending_query.order_by(Approval.created_at.asc()).all()
+    resolved_count = db.query(Approval).filter(Approval.status.in_(["approved", "rejected"])).count()
+
     context = get_common_context(db, active_tab="approvals")
     context.update({
         "pending_approvals": pending,
         "all_approvals": all_apps,
         "selected_status": status or "all",
         "selected_action_type": action_type or "all",
-        "search_query": q or ""
+        "search_query": q or "",
+        "resolved_count": resolved_count
     })
     return templates.TemplateResponse(request=request, name="approvals.html", context=context)
+
+
+@app.post("/approvals/clear-resolved")
+def clear_resolved_approvals_endpoint(db: Session = Depends(get_db)):
+    """Purges historical resolved (approved/rejected) safety records."""
+    resolved = db.query(Approval).filter(Approval.status.in_(["approved", "rejected"])).all()
+    count = len(resolved)
+    for a in resolved:
+        db.delete(a)
+    db.commit()
+    logger.info(f"Cleared {count} resolved approval records")
+    return RedirectResponse(url="/approvals", status_code=303)
 
 
 @app.get("/approvals/export")

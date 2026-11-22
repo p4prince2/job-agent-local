@@ -1466,6 +1466,79 @@ Architecture diagram with SQLite and local LLM icons.
         self.assertEqual(resp.status_code, 200)
         self.assertIn("Overall Completion Progress", resp.text)
 
+    def test_work_edit_endpoint(self):
+        import uuid
+        from db.session import SessionLocal
+        from db.models import WorkItem
+
+        uid = uuid.uuid4().hex[:6]
+        db = SessionLocal()
+        item = WorkItem(title=f"Original Title {uid}", project_tag="gate_prep", priority="low", due_date="2026-11-25", status="todo")
+        db.add(item)
+        db.commit()
+        db.refresh(item)
+        item_id = item.id
+        db.close()
+
+        # Update title, tag, priority, due date
+        resp = self.client.post(
+            f"/work/edit/{item_id}",
+            data={
+                "title": f"Edited Title {uid}",
+                "project_tag": "ai_ml",
+                "priority": "high",
+                "due_date": "2026-11-30"
+            },
+            follow_redirects=False
+        )
+        self.assertEqual(resp.status_code, 303)
+
+        db = SessionLocal()
+        updated = db.query(WorkItem).filter(WorkItem.id == item_id).first()
+        self.assertEqual(updated.title, f"Edited Title {uid}")
+        self.assertEqual(updated.project_tag, "ai_ml")
+        self.assertEqual(updated.priority, "high")
+        self.assertEqual(updated.due_date, "2026-11-30")
+        db.close()
+
+        # Test empty title failure
+        fail_resp = self.client.post(f"/work/edit/{item_id}", data={"title": "   ", "project_tag": "ai_ml"})
+        self.assertEqual(fail_resp.status_code, 400)
+
+    def test_approvals_clear_resolved_endpoint(self):
+        import uuid
+        from db.session import SessionLocal
+        from db.models import Approval
+
+        uid = uuid.uuid4().hex[:6]
+        db = SessionLocal()
+        app_pending = Approval(action_type="delete_file", description=f"Pending {uid}", status="pending", requested_by_agent="TestAgent")
+        app_approved = Approval(action_type="delete_file", description=f"Approved {uid}", status="approved", requested_by_agent="TestAgent")
+        app_rejected = Approval(action_type="delete_file", description=f"Rejected {uid}", status="rejected", requested_by_agent="TestAgent")
+        db.add_all([app_pending, app_approved, app_rejected])
+        db.commit()
+        db.close()
+
+        resp = self.client.post("/approvals/clear-resolved", follow_redirects=False)
+        self.assertEqual(resp.status_code, 303)
+
+        db = SessionLocal()
+        p = db.query(Approval).filter(Approval.description == f"Pending {uid}").first()
+        a = db.query(Approval).filter(Approval.description == f"Approved {uid}").first()
+        r = db.query(Approval).filter(Approval.description == f"Rejected {uid}").first()
+        self.assertIsNotNone(p)
+        self.assertIsNone(a)
+        self.assertIsNone(r)
+        db.close()
+
+    def test_approvals_json_export(self):
+        import json
+        resp = self.client.get("/approvals/export?format=json")
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("application/json", resp.headers["content-type"])
+        data = json.loads(resp.text)
+        self.assertIsInstance(data, list)
+
 
 if __name__ == "__main__":
     unittest.main()

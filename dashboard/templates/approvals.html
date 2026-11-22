@@ -84,6 +84,16 @@
       <a href="/approvals/export?status={{ selected_status }}&action_type={{ selected_action_type }}{% if search_query %}&q={{ search_query }}{% endif %}&format=csv" class="btn btn-secondary" style="font-size: 0.8rem; text-decoration: none;" title="Download safety approval records as CSV spreadsheet">
         📊 Export Audit .csv
       </a>
+      <a href="/approvals/export?status={{ selected_status }}&action_type={{ selected_action_type }}{% if search_query %}&q={{ search_query }}{% endif %}&format=json" class="btn btn-secondary" style="font-size: 0.8rem; text-decoration: none;" title="Download safety approval records as JSON payload">
+        📦 Export Audit .json
+      </a>
+      {% if resolved_count and resolved_count > 0 %}
+      <form action="/approvals/clear-resolved" method="POST" style="margin: 0;" onsubmit="return confirm('Clear all {{ resolved_count }} resolved approval history records?');">
+        <button type="submit" class="btn btn-secondary" style="font-size: 0.8rem; color: #DC2626; border-color: #FCA5A5; padding: 0.25rem 0.6rem;" title="Purge resolved approval records">
+          🧹 Clear Resolved ({{ resolved_count }})
+        </button>
+      </form>
+      {% endif %}
       <div style="display: flex; gap: 0.35rem; flex-wrap: wrap;">
         <a href="/approvals?status=all&action_type={{ selected_action_type }}{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.8rem; {% if selected_status == 'all' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">All</a>
         <a href="/approvals?status=pending&action_type={{ selected_action_type }}{% if search_query %}&q={{ search_query }}{% endif %}" class="btn btn-secondary" style="font-size: 0.8rem; {% if selected_status == 'pending' %}background: var(--primary); color: white; border-color: var(--primary);{% endif %}">Pending</a>
